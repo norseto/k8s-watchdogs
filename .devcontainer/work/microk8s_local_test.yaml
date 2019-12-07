@@ -1,0 +1,58 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: evicted-cleaner
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs:     ["list","delete","get"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kube-system
+  name: evicted-cleaner
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evicted-cleaner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: evicted-cleaner
+subjects:
+- kind: ServiceAccount
+  namespace: kube-system
+  name: evicted-cleaner
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  namespace: kube-system
+  name: evicted-cleaner
+spec:
+  schedule: "*/3 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: evicted-cleaner
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                    - amd64
+          containers:
+          - name: evicted-cleaner
+            image: localhost:32000/norseto/evicted-cleaner:latest
+            imagePullPolicy: IfNotPresent
+          restartPolicy: OnFailure
+          activeDeadlineSeconds: 60
+---
