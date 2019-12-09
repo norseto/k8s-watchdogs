@@ -1,0 +1,122 @@
+package main
+
+// Evicted Pod Cleaner
+// Deletes all evicted pod.
+
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/norseto/k8s-watchdogs/pkg/k8sutils"
+)
+
+func main() {
+	var clientset *kubernetes.Clientset
+	var namespace = metav1.NamespaceAll
+
+	log.Info("Starging multiple pod rs rebalancer...")
+
+	clientset, err := k8sutils.NewClientset()
+	if err != nil {
+		log.Panic(errors.Wrap(err, "failed to create clientset"))
+	}
+
+	nodes, err := k8sutils.GetUntaintedNodes(clientset)
+	if err != nil {
+		log.Panic(errors.Wrap(err, "failed to list nodes"))
+	}
+
+	replicasets, err := getTargetReplicasets(clientset, namespace)
+	if err != nil {
+		log.Panic(errors.Wrap(err, "failed to list replicaset"))
+	}
+	rs, err := getTargetPods(clientset, namespace, nodes, replicasets)
+	if err != nil {
+		log.Panic(errors.Wrap(err, "failed to list pods"))
+	}
+
+	if len(rs) < 1 {
+		log.Info("No rs. Do nothing.")
+		return
+	}
+
+	rebalanced := 0
+	for _, r := range rs {
+		name := r.replicaset.Name
+		result, err := newRebalancer(r).Rebalance(clientset)
+		if err != nil {
+			log.Error(errors.Wrap(err, fmt.Sprint("failed to rebalance rs: ", name)))
+		} else if result {
+			log.Debug(fmt.Sprint("Rebalanced rs: ", name))
+			rebalanced++
+		} else {
+			log.Debug(fmt.Sprint("No need to rebalance rs: ", name))
+		}
+	}
+
+	log.Info("Done multiple pod rs rebalancer. Rebalanced ", rebalanced, " ReplicaSet(s)")
+}
+
+// getTargetReplicasets gets target replicaset.
+// Parameter:
+//   c *kubernetes.Clientset : clientset
+//   ns string : namespace of replicaset
+// Returns:
+//   []appsv1.ReplicaSet : All target replicasets that does not hace
+//                         affinity nor tolerations nor nodeselector
+//   error : error if error happens
+func getTargetReplicasets(c *kubernetes.Clientset, ns string) ([]appsv1.ReplicaSet, error) {
+	var replicasets = []appsv1.ReplicaSet{}
+	all, err := c.AppsV1().ReplicaSets(ns).List(metav1.ListOptions{IncludeUninitialized: false})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list replicaset")
+	}
+	for _, rs := range all.Items {
+		replicasets = append(replicasets, rs)
+	}
+	return replicasets, nil
+}
+
+// getTargetPods gets target pods.
+func getTargetPods(c *kubernetes.Clientset, ns string, nodes []v1.Node, rslist []appsv1.ReplicaSet) ([]*replicaState, error) {
+	nodeMap := make(map[string]v1.Node)
+	stats := []*replicaState{}
+	rsmap := make(map[types.UID]*replicaState)
+
+	for _, n := range nodes {
+		nodeMap[n.Name] = n
+	}
+
+	pods, err := c.CoreV1().Pods(ns).List(metav1.ListOptions{IncludeUninitialized: false})
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprint("failed to list pod for ", ns))
+	}
+	for _, po := range pods.Items {
+		if !k8sutils.IsPodReadyRunning(po) {
+			continue
+		}
+		for _, rs := range rslist {
+			if !k8sutils.IsPodOwnedBy(rs, po) {
+				continue
+			}
+			node := nodeMap[po.Spec.NodeName]
+			postat := podState{pod: &po, node: &node}
+			rstat, ok := rsmap[rs.ObjectMeta.UID]
+			if !ok {
+				rstat = &replicaState{replicaset: &rs, nodes: nodes}
+				rsmap[rs.ObjectMeta.UID] = rstat
+				stats = append(stats, rstat)
+			}
+			rstat.podState = append(rstat.podState, postat)
+			break
+		}
+	}
+	return stats, nil
+}
