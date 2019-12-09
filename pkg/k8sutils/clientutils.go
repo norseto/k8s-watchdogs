@@ -1,13 +1,14 @@
-package pkg
-// Common package.
+package k8sutils
+
+// Common client package.
 
 import (
 	"flag"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"path/filepath"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/rest"
 )
 
 // NewClientset returns current Clientset
