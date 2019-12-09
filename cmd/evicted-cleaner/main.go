@@ -1,14 +1,15 @@
 package main
+
 // Evicted Pod Cleaner
 // Deletes all evicted pod.
 
 import (
+	k8sutils "github.com/norseto/k8s-watchdogs/pkg/k8sutils"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/api/core/v1"
-	common "github.com/norseto/k8s-watchdogs/pkg"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 func main() {
 	var clientset *kubernetes.Clientset
 
-	clientset, err := common.NewClientset()
+	clientset, err := k8sutils.NewClientset()
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to create clientset"))
 	}
