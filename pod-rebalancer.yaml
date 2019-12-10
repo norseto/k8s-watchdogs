@@ -39,7 +39,7 @@ metadata:
   namespace: kube-system
   name: pod-rebalancer
 spec:
-  schedule: "20 * * * *"
+  schedule: "25 * * * *"
   concurrencyPolicy: Forbid
   jobTemplate:
     spec:
@@ -57,7 +57,7 @@ spec:
                     - amd64
           containers:
           - name: pod-rebalancer
-            image: docker.io/norseto/pod-rebalancer:0.0.1
+            image: docker.io/norseto/pod-rebalancer:0.1.0
             imagePullPolicy: IfNotPresent
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
