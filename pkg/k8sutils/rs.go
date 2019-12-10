@@ -3,7 +3,55 @@ package k8sutils
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+// Replicaset owners counter.
+type rsowners struct {
+	owners map[types.UID]int
+}
+
+// ReplicaSetStatus represents total ReplicaSets.
+type ReplicaSetStatus interface {
+	// IsRollingUpdating checks ReplicaSet is now on rollingupdate.
+	// Parameters:
+	//   rs: ReplicaSet
+	// Returns:
+	//   True if under rollingupdate.
+	IsRollingUpdating(rs *appsv1.ReplicaSet) bool
+}
+
+// NewReplicaSetStatus retuns new ReplicasetStatus instance.
+// Parameters:
+//   rs: Array of ReplicaSet
+// Returns:
+//   a new instance.
+func NewReplicaSetStatus(rs []appsv1.ReplicaSet) ReplicaSetStatus {
+	ret := &rsowners{owners: map[types.UID]int{}}
+	for _, r := range rs {
+		if *r.Spec.Replicas == 0 {
+			continue
+		}
+		for _, o := range r.OwnerReferences {
+			ret.owners[o.UID]++
+		}
+	}
+	return ret
+}
+
+// IsRollingUpdating checks ReplicaSet is now on rollingupdate.
+// Parameters:
+//   rs: ReplicaSet
+// Returns:
+//   True if under rollingupdate.
+func (u *rsowners) IsRollingUpdating(rs *appsv1.ReplicaSet) bool {
+	for _, o := range rs.OwnerReferences {
+		if u.owners[o.UID] > 1 {
+			return true
+		}
+	}
+	return false
+}
 
 // IsPodScheduleLimeted returns true if Pod Spec of Replicaset has any schedule limeted
 // like pod has Affinity, Toleration, or NodeSelector
