@@ -1,6 +1,7 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -47,7 +48,7 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 
 	node, num := r.maxPodNode()
 	ave := float32(sr) / float32(nodeCount)
-	if len(node) > 0 && num >= int(ave+1.0) {
+	if len(node) > 0 && float32(num) >= ave+1.0 {
 		err := r.deleteNodePod(c, node)
 		return true, err
 	}
@@ -59,6 +60,7 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 func (r *rebalancer) deleteNodePod(c *kubernetes.Clientset, node string) error {
 	for _, s := range r.current.podState {
 		if s.node.Name == node {
+			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
 			return k8sutils.DeletePod(c, *s.pod)
 		}
 	}
