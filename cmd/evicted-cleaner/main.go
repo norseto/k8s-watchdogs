@@ -38,7 +38,7 @@ func main() {
 
 	deleted := 0
 	for _, pod := range evicteds {
-		if err := deletePod(clientset, pod); err != nil {
+		if err := k8sutils.DeletePod(clientset, pod); err != nil {
 			log.Info(err)
 		} else {
 			deleted = deleted + 1
@@ -54,12 +54,4 @@ func isEvicted(pod v1.Pod) bool {
 		return true
 	}
 	return false
-}
-
-// deletePod delete the pod
-func deletePod(c *kubernetes.Clientset, pod v1.Pod) error {
-	if err := c.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}); err != nil {
-		return errors.Wrap(err, "failed to delete Pod: "+pod.Name)
-	}
-	return nil
 }
