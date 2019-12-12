@@ -14,7 +14,7 @@ Delete a pod that is scheduled to be biased to a specific node.
 
 ### Installation
 ```
-kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/pod-rebalancer-v0.1.0/pod-rebalancer.yaml
+kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/pod-rebalancer-v0.1.1/pod-rebalancer.yaml
 ```
 
 ### Limitation

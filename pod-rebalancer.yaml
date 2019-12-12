@@ -57,7 +57,7 @@ spec:
                     - amd64
           containers:
           - name: pod-rebalancer
-            image: docker.io/norseto/pod-rebalancer:0.1.0
+            image: docker.io/norseto/pod-rebalancer:0.1.1
             imagePullPolicy: IfNotPresent
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
