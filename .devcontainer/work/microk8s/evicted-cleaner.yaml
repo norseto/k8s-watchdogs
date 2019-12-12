@@ -52,7 +52,7 @@ spec:
           containers:
           - name: evicted-cleaner
             image: localhost:32000/norseto/evicted-cleaner:latest
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Always
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
 ---

@@ -16,8 +16,8 @@ type replicaState struct {
 }
 
 type podState struct {
-	pod  *v1.Pod
-	node *v1.Node
+	pod  v1.Pod
+	node v1.Node
 }
 
 type rebalancer struct {
@@ -61,7 +61,7 @@ func (r *rebalancer) deleteNodePod(c *kubernetes.Clientset, node string) error {
 	for _, s := range r.current.podState {
 		if s.node.Name == node {
 			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
-			return k8sutils.DeletePod(c, *s.pod)
+			return k8sutils.DeletePod(c, s.pod)
 		}
 	}
 	return nil
