@@ -58,7 +58,7 @@ spec:
           containers:
           - name: pod-rebalancer
             image: localhost:32000/norseto/pod-rebalancer:latest
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Always
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
 ---

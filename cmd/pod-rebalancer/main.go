@@ -110,7 +110,7 @@ func getCandidatePods(c *kubernetes.Clientset, ns string, nodes []v1.Node, rslis
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
-			postat := podState{pod: &po, node: &node}
+			postat := podState{pod: po, node: node}
 			rstat, ok := rsmap[rs.ObjectMeta.UID]
 			if !ok {
 				rstat = &replicaState{replicaset: &rs, nodes: nodes}
