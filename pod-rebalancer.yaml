@@ -55,6 +55,11 @@ spec:
                     operator: In
                     values:
                     - amd64
+                - matchExpressions:
+                  - key: beta.kubernetes.io/arch
+                    operator: In
+                    values:
+                    - amd64
           containers:
           - name: pod-rebalancer
             image: docker.io/norseto/pod-rebalancer:0.1.1

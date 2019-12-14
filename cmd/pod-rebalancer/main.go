@@ -1,7 +1,7 @@
 package main
 
-// Evicted Pod Cleaner
-// Deletes all evicted pod.
+// Pod Rebalancer
+// Deletes pod scheduled biased node.
 
 import (
 	"fmt"
