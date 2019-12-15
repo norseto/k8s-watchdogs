@@ -18,10 +18,12 @@ type replicaState struct {
 type podState struct {
 	pod  v1.Pod
 	node v1.Node
+	deleted bool
 }
 
 type rebalancer struct {
 	current *replicaState
+	maxRate float32
 }
 
 func (r *rebalancer) specReplicas() int32 {
@@ -33,7 +35,7 @@ func (r *rebalancer) currentReplicas() int32 {
 }
 
 func newRebalancer(current *replicaState) *rebalancer {
-	return &rebalancer{current: current}
+	return &rebalancer{current: current, maxRate: .25}
 }
 
 func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
@@ -46,21 +48,35 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 		return false, nil
 	}
 
-	node, num := r.maxPodNode()
-	ave := float32(sr) / float32(nodeCount)
-	if len(node) > 0 && float32(num) >= ave+1.0 {
-		err := r.deleteNodePod(c, node)
-		return true, err
+	deleted := 0
+	maxDel := int(float32(sr) * r.maxRate)
+	if maxDel < 1 {
+		maxDel = 1
 	}
 
-	return false, nil
+	for i := 0; i < maxDel; i++ {
+		node, num := r.maxPodNode()
+		ave := float32(sr) / float32(nodeCount)
+		if len(node) <= 0 || float32(num) < ave+1.0 {
+			return deleted > 0, nil
+		}
+		if err := r.deleteNodePod(c, node); err != nil {
+			return deleted > 0, err
+		}
+		deleted++
+	}
+
+	return deleted > 0, nil
 }
 
 // deleteNodePod deletes only one pod per replicaset.
 func (r *rebalancer) deleteNodePod(c *kubernetes.Clientset, node string) error {
-	for _, s := range r.current.podState {
-		if s.node.Name == node {
+	l := len(r.current.podState)
+	for i := 0; i < l; i++ {
+		s := &r.current.podState[i]
+		if s.node.Name == node && !s.deleted {
 			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
+			s.deleted = true
 			return k8sutils.DeletePod(c, s.pod)
 		}
 	}
@@ -73,7 +89,9 @@ func (r *rebalancer) maxPodNode() (string, int) {
 		m[n.Name] = 0
 	}
 	for _, s := range r.current.podState {
-		m[s.node.Name]++
+		if !s.deleted {
+			m[s.node.Name]++
+		}
 	}
 
 	maxVal := 0
