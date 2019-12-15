@@ -56,7 +56,7 @@ spec:
                     - amd64
           containers:
           - name: evicted-cleaner
-            image: docker.io/norseto/evicted-cleaner:0.1.1
+            image: docker.io/norseto/evicted-cleaner:0.1.2
             imagePullPolicy: IfNotPresent
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
