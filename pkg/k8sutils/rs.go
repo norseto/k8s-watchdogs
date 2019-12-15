@@ -61,7 +61,7 @@ func (u *rsowners) IsRollingUpdating(rs *appsv1.ReplicaSet) bool {
 //   bool : True if pod of replicaset scheduling is limited.
 func IsPodScheduleLimeted(rs appsv1.ReplicaSet) bool {
 	podSpec := rs.Spec.Template.Spec
-	return podSpec.Affinity != nil || len(podSpec.Tolerations) > 0 || len(podSpec.NodeSelector) > 0
+	return podSpec.Affinity != nil || len(podSpec.NodeSelector) > 0
 }
 
 // IsPodOwnedBy determins the owner of the pod is the specified replicaset

@@ -6,7 +6,7 @@ This CronJos cleans "Evicted" pods.
 
 ### Installation
 ```
-kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/evicted-cleaner-v0.1.1/evicted-cleaner.yaml
+kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/evicted-cleaner-v0.1.2/evicted-cleaner.yaml
 ```
 
 ## Pod Rebalancer
