@@ -69,7 +69,7 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 	return deleted > 0, nil
 }
 
-// deleteNodePod deletes only one pod per replicaset.
+// deleteNodePod deletes a pod.
 func (r *rebalancer) deleteNodePod(c *kubernetes.Clientset, node string) error {
 	l := len(r.current.podState)
 	for i := 0; i < l; i++ {
