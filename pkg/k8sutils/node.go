@@ -9,13 +9,16 @@ import (
 
 // GetUntaintedNodes gets normal(untainted) nodes.
 // Parameter:
-//   c *kubernetes.Clientset : clientset
+//
+//	c *kubernetes.Clientset : clientset
+//
 // Returns:
-//   []v1.Node : All target nodes that does not contain TAINTED nodes
-//   error : error if error happens
+//
+//	[]v1.Node : All target nodes that does not contain TAINTED nodes
+//	error : error if error happens
 func GetUntaintedNodes(c *kubernetes.Clientset) ([]v1.Node, error) {
 	var nodes = []v1.Node{}
-	all, err := c.CoreV1().Nodes().List(metav1.ListOptions{IncludeUninitialized: false})
+	all, err := c.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list nodes")
 	}

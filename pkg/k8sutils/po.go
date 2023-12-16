@@ -9,9 +9,12 @@ import (
 
 // IsPodReadyRunning returns the Pod phase is Running or empty and all container is ready.
 // Parameter:
-//   po v1.Pod : Target Pod
+//
+//	po v1.Pod : Target Pod
+//
 // Returns:
-//   bool : True if pod is ready(Running and all containers are also ready)
+//
+//	bool : True if pod is ready(Running and all containers are also ready)
 func IsPodReadyRunning(po v1.Pod) bool {
 	phase := po.Status.Phase
 	if phase != v1.PodRunning && phase != "" {
