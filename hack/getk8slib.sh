@@ -1,7 +1,7 @@
 #!/bin/sh
 # Set k8s api version
 
-K8SVERSION=1.20.2
+K8SVERSION=1.28.2
 LIBS="client-go api apimachinery"
 
 for lib in ${LIBS}

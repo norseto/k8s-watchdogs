@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -16,8 +17,8 @@ type replicaState struct {
 }
 
 type podState struct {
-	pod  v1.Pod
-	node v1.Node
+	pod     v1.Pod
+	node    v1.Node
 	deleted bool
 }
 
@@ -38,7 +39,7 @@ func newRebalancer(current *replicaState) *rebalancer {
 	return &rebalancer{current: current, maxRate: .25}
 }
 
-func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
+func (r *rebalancer) Rebalance(ctx context.Context, c *kubernetes.Clientset) (bool, error) {
 	nodeCount := len(r.current.nodes)
 	rs := r.current.replicaset
 	sr := r.specReplicas()
@@ -60,7 +61,7 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 		if len(node) <= 0 || float32(num) < ave+1.0 {
 			return deleted > 0, nil
 		}
-		if err := r.deleteNodePod(c, node); err != nil {
+		if err := r.deleteNodePod(ctx, c, node); err != nil {
 			return deleted > 0, err
 		}
 		deleted++
@@ -70,14 +71,14 @@ func (r *rebalancer) Rebalance(c *kubernetes.Clientset) (bool, error) {
 }
 
 // deleteNodePod deletes a pod.
-func (r *rebalancer) deleteNodePod(c *kubernetes.Clientset, node string) error {
+func (r *rebalancer) deleteNodePod(ctx context.Context, c *kubernetes.Clientset, node string) error {
 	l := len(r.current.podState)
 	for i := 0; i < l; i++ {
 		s := &r.current.podState[i]
 		if s.node.Name == node && !s.deleted {
 			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
 			s.deleted = true
-			return k8sutils.DeletePod(c, s.pod)
+			return k8sutils.DeletePod(ctx, c, s.pod)
 		}
 	}
 	return nil

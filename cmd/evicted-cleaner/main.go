@@ -4,6 +4,7 @@ package main
 // Deletes all evicted pod.
 
 import (
+	"context"
 	k8sutils "github.com/norseto/k8s-watchdogs/pkg/k8sutils"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -19,17 +20,18 @@ const (
 func main() {
 	var clientset *kubernetes.Clientset
 
+	ctx := context.Background()
 	clientset, err := k8sutils.NewClientset()
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to create clientset"))
 	}
 
-	pods, err := clientset.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{})
+	pods, err := clientset.CoreV1().Pods(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list pods"))
 	}
 
-	evicteds := [](v1.Pod){}
+	var evicteds []v1.Pod
 	for _, pod := range pods.Items {
 		if isEvicted(pod) {
 			evicteds = append(evicteds, pod)
@@ -38,7 +40,7 @@ func main() {
 
 	deleted := 0
 	for _, pod := range evicteds {
-		if err := k8sutils.DeletePod(clientset, pod); err != nil {
+		if err := k8sutils.DeletePod(ctx, clientset, pod); err != nil {
 			log.Info(err)
 		} else {
 			deleted = deleted + 1

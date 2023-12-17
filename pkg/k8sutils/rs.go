@@ -21,11 +21,14 @@ type ReplicaSetStatus interface {
 	IsRollingUpdating(rs *appsv1.ReplicaSet) bool
 }
 
-// NewReplicaSetStatus retuns new ReplicasetStatus instance.
+// NewReplicaSetStatus returns new ReplicasetStatus instance.
 // Parameters:
-//   rs: Array of ReplicaSet
+//
+//	rs: Array of ReplicaSet
+//
 // Returns:
-//   a new instance.
+//
+//	a new instance.
 func NewReplicaSetStatus(rs []appsv1.ReplicaSet) ReplicaSetStatus {
 	ret := &rsowners{owners: map[types.UID]int{}}
 	for _, r := range rs {
@@ -41,9 +44,12 @@ func NewReplicaSetStatus(rs []appsv1.ReplicaSet) ReplicaSetStatus {
 
 // IsRollingUpdating checks ReplicaSet is now on rollingupdate.
 // Parameters:
-//   rs: ReplicaSet
+//
+//	rs: ReplicaSet
+//
 // Returns:
-//   True if under rollingupdate.
+//
+//	True if under rollingupdate.
 func (u *rsowners) IsRollingUpdating(rs *appsv1.ReplicaSet) bool {
 	for _, o := range rs.OwnerReferences {
 		if u.owners[o.UID] > 1 {
@@ -56,9 +62,12 @@ func (u *rsowners) IsRollingUpdating(rs *appsv1.ReplicaSet) bool {
 // IsPodScheduleLimeted returns true if Pod Spec of Replicaset has any schedule limeted
 // like pod has Affinity, Toleration, or NodeSelector
 // Parameter:
-//   rs appsv1.ReplicaSet : Target Replicaset
+//
+//	rs appsv1.ReplicaSet : Target Replicaset
+//
 // Returns:
-//   bool : True if pod of replicaset scheduling is limited.
+//
+//	bool : True if pod of replicaset scheduling is limited.
 func IsPodScheduleLimeted(rs appsv1.ReplicaSet) bool {
 	podSpec := rs.Spec.Template.Spec
 	return podSpec.Affinity != nil || len(podSpec.NodeSelector) > 0
@@ -66,10 +75,13 @@ func IsPodScheduleLimeted(rs appsv1.ReplicaSet) bool {
 
 // IsPodOwnedBy determins the owner of the pod is the specified replicaset
 // Parameter:
-//   rs appsv1.ReplicaSet : Target Replicaset
-//   po v1.Pod : Target Pod
+//
+//	rs appsv1.ReplicaSet : Target Replicaset
+//	po v1.Pod : Target Pod
+//
 // Returns:
-//   bool : True if pod is specified replicaset
+//
+//	bool : True if pod is specified replicaset
 func IsPodOwnedBy(rs appsv1.ReplicaSet, po v1.Pod) bool {
 	uid := rs.ObjectMeta.UID
 	owners := po.ObjectMeta.OwnerReferences

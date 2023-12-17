@@ -1,6 +1,7 @@
 package k8sutils
 
 import (
+	"context"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,8 @@ func IsPodReadyRunning(po v1.Pod) bool {
 }
 
 // DeletePod delete the pod
-func DeletePod(c *kubernetes.Clientset, pod v1.Pod) error {
-	if err := c.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}); err != nil {
+func DeletePod(ctx context.Context, c *kubernetes.Clientset, pod v1.Pod) error {
+	if err := c.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 		return errors.Wrap(err, "failed to delete Pod: "+pod.Name)
 	}
 	return nil

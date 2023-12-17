@@ -4,6 +4,7 @@ package main
 // Deletes pod scheduled biased node.
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,7 @@ import (
 func main() {
 	var clientset *kubernetes.Clientset
 	var namespace = metav1.NamespaceAll
+	var ctx = context.Background()
 
 	log.Info("Starting multiple pod rs rebalancer...")
 
@@ -28,16 +30,16 @@ func main() {
 		log.Panic(errors.Wrap(err, "failed to create clientset"))
 	}
 
-	nodes, err := k8sutils.GetUntaintedNodes(clientset)
+	nodes, err := k8sutils.GetUntaintedNodes(ctx, clientset)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list nodes"))
 	}
 
-	replicasets, err := getTargetReplicaSets(clientset, namespace)
+	replicasets, err := getTargetReplicaSets(ctx, clientset, namespace)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list replicaset"))
 	}
-	rs, err := getCandidatePods(clientset, namespace, nodes, replicasets)
+	rs, err := getCandidatePods(ctx, clientset, namespace, nodes, replicasets)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list pods"))
 	}
@@ -55,7 +57,7 @@ func main() {
 			log.Info(fmt.Sprint("May under rolling update. Leave untouched. rs: ", name))
 			continue
 		}
-		result, err := newRebalancer(r).Rebalance(clientset)
+		result, err := newRebalancer(r).Rebalance(ctx, clientset)
 		if err != nil {
 			log.Error(errors.Wrap(err, fmt.Sprint("failed to rebalance rs: ", name)))
 		} else if result {
@@ -71,15 +73,18 @@ func main() {
 
 // getTargetReplicaSets gets target replicaset.
 // Parameter:
-//   c *kubernetes.Clientset : clientset
-//   ns string : namespace of replicaset
+//
+//	c *kubernetes.Clientset : clientset
+//	ns string : namespace of replicaset
+//
 // Returns:
-//   []appsv1.ReplicaSet : All target replicasets that does not hace
-//                         affinity nor tolerations nor nodeselector
-//   error : error if error happens
-func getTargetReplicaSets(c *kubernetes.Clientset, ns string) ([]appsv1.ReplicaSet, error) {
-	var replicasets = []appsv1.ReplicaSet{}
-	all, err := c.AppsV1().ReplicaSets(ns).List(metav1.ListOptions{IncludeUninitialized: false})
+//
+//	[]appsv1.ReplicaSet : All target replicasets that does not hace
+//	                      affinity nor tolerations nor nodeselector
+//	error : error if error happens
+func getTargetReplicaSets(ctx context.Context, c *kubernetes.Clientset, ns string) ([]appsv1.ReplicaSet, error) {
+	var replicasets []appsv1.ReplicaSet
+	all, err := c.AppsV1().ReplicaSets(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list replicaset")
 	}
@@ -88,16 +93,16 @@ func getTargetReplicaSets(c *kubernetes.Clientset, ns string) ([]appsv1.ReplicaS
 }
 
 // getCandidatePods gets pod candidate.
-func getCandidatePods(c *kubernetes.Clientset, ns string, nodes []v1.Node, rslist []appsv1.ReplicaSet) ([]*replicaState, error) {
+func getCandidatePods(ctx context.Context, c *kubernetes.Clientset, ns string, nodes []v1.Node, rslist []appsv1.ReplicaSet) ([]*replicaState, error) {
 	nodeMap := make(map[string]v1.Node)
-	stats := []*replicaState{}
+	var stats []*replicaState
 	rsmap := make(map[types.UID]*replicaState)
 
 	for _, n := range nodes {
 		nodeMap[n.Name] = n
 	}
 
-	pods, err := c.CoreV1().Pods(ns).List(metav1.ListOptions{IncludeUninitialized: false})
+	pods, err := c.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprint("failed to list pod for ", ns))
 	}
