@@ -39,13 +39,14 @@ func newRebalancer(current *replicaState) *rebalancer {
 	return &rebalancer{current: current, maxRate: .25}
 }
 
-func (r *rebalancer) Rebalance(ctx context.Context, c *kubernetes.Clientset) (bool, error) {
+// Rebalance rebalances the pods across the nodes.
+func (r *rebalancer) Rebalance(ctx context.Context, c kubernetes.Interface) (bool, error) {
 	nodeCount := len(r.current.nodes)
 	rs := r.current.replicaset
 	sr := r.specReplicas()
 
 	if nodeCount < 2 || sr < 2 || r.currentReplicas() < sr ||
-		k8sutils.IsPodScheduleLimeted(*rs) {
+		k8sutils.IsPodScheduleLimited(*rs) {
 		return false, nil
 	}
 
@@ -71,7 +72,7 @@ func (r *rebalancer) Rebalance(ctx context.Context, c *kubernetes.Clientset) (bo
 }
 
 // deleteNodePod deletes a pod.
-func (r *rebalancer) deleteNodePod(ctx context.Context, c *kubernetes.Clientset, node string) error {
+func (r *rebalancer) deleteNodePod(ctx context.Context, c kubernetes.Interface, node string) error {
 	l := len(r.current.podState)
 	for i := 0; i < l; i++ {
 		s := &r.current.podState[i]

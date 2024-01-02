@@ -1,7 +1,5 @@
 package k8sutils
 
-// Common client package.
-
 import (
 	"flag"
 	"k8s.io/client-go/kubernetes"
@@ -11,30 +9,58 @@ import (
 	"path/filepath"
 )
 
-// NewClientset returns current Clientset
-func NewClientset() (clientset *kubernetes.Clientset, err error) {
-	var kubeconfig *string
-	var config *rest.Config
+// getKubeconfig retrieves the path to the kubeconfig file.
+func getKubeconfig() *string {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 
 	if home := os.Getenv("HOME"); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"),
+		return flag.String("kubeconfig", filepath.Join(home, ".kube", "config"),
 			"(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	} else if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
+		return &envVar
 	}
-	flag.Parse()
+	return flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+}
+
+// NewRESTConfig returns REST client configuration for Kubernetes
+func NewRESTConfig() (config *rest.Config, err error) {
+	kubeconfig := getKubeconfig()
+
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 
 	if *kubeconfig != "" {
 		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
-		if err != nil {
-			// Use in-cluster configuration
-			config, err = rest.InClusterConfig()
-		}
 	}
 
-	if err == nil {
-		// Create clientset from configuration
-		clientset, err = kubernetes.NewForConfig(config)
+	if config == nil || err != nil {
+		config, err = rest.InClusterConfig()
 	}
 	return
+}
+
+// NewClientset returns current Clientset
+func NewClientset() (*kubernetes.Clientset, error) {
+	clnt, _, err := NewClientsetWithRestConfig()
+
+	return clnt, err
+}
+
+// NewClientsetWithRestConfig returns current Clientset and Rest configuration
+func NewClientsetWithRestConfig() (*kubernetes.Clientset, *rest.Config, error) {
+	config, err := NewRESTConfig()
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	clnt, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return clnt, config, err
 }

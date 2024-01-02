@@ -8,16 +8,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// GetUntaintedNodes gets normal(untainted) nodes.
-// Parameter:
-//
-//	c *kubernetes.Clientset : clientset
-//
-// Returns:
-//
-//	[]v1.Node : All target nodes that does not contain TAINTED nodes
-//	error : error if error happens
-func GetUntaintedNodes(ctx context.Context, c *kubernetes.Clientset) ([]v1.Node, error) {
+// GetUntaintedNodes returns a list of nodes that have no taints.
+func GetUntaintedNodes(ctx context.Context, c kubernetes.Interface) ([]v1.Node, error) {
 	var nodes []v1.Node
 	all, err := c.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {

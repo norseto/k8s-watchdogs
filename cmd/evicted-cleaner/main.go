@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	k8sutils "github.com/norseto/k8s-watchdogs/pkg/k8sutils"
+	"github.com/norseto/k8s-watchdogs/pkg/k8sutils"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -18,29 +18,29 @@ const (
 )
 
 func main() {
-	var clientset *kubernetes.Clientset
+	var client kubernetes.Interface
 
 	ctx := context.Background()
-	clientset, err := k8sutils.NewClientset()
+	client, err := k8sutils.NewClientset()
 	if err != nil {
-		log.Panic(errors.Wrap(err, "failed to create clientset"))
+		log.Panic(errors.Wrap(err, "failed to create client"))
 	}
 
-	pods, err := clientset.CoreV1().Pods(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	pods, err := client.CoreV1().Pods(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list pods"))
 	}
 
 	var evicteds []v1.Pod
 	for _, pod := range pods.Items {
-		if isEvicted(pod) {
+		if isEvicted(nil, pod) {
 			evicteds = append(evicteds, pod)
 		}
 	}
 
 	deleted := 0
 	for _, pod := range evicteds {
-		if err := k8sutils.DeletePod(ctx, clientset, pod); err != nil {
+		if err := k8sutils.DeletePod(ctx, client, pod); err != nil {
 			log.Info(err)
 		} else {
 			deleted = deleted + 1
@@ -50,7 +50,7 @@ func main() {
 }
 
 // isEvicted returns the pod is already Evicted
-func isEvicted(pod v1.Pod) bool {
+func isEvicted(_ context.Context, pod v1.Pod) bool {
 	status := pod.Status
 	if status.Phase == v1.PodFailed && status.Reason == reasonEvicted {
 		return true
