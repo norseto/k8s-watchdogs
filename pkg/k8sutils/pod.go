@@ -2,14 +2,14 @@ package k8sutils
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// IsPodReadyRunning checks if a given pod is in the "Running" phase and all its containers are ready.
-func IsPodReadyRunning(_ context.Context, po v1.Pod) bool {
+// IsPodReadyRunning checks if a given Pod is both ready and running.
+func IsPodReadyRunning(po v1.Pod) bool {
 	phase := po.Status.Phase
 	if phase != v1.PodRunning && phase != "" {
 		return false
@@ -23,14 +23,14 @@ func IsPodReadyRunning(_ context.Context, po v1.Pod) bool {
 }
 
 // DeletePod deletes a pod using the Kubernetes client.
-func DeletePod(ctx context.Context, c kubernetes.Interface, pod v1.Pod) error {
-	if err := c.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
-		return errors.Wrap(err, "failed to delete Pod: "+pod.Name)
+func DeletePod(ctx context.Context, client kubernetes.Interface, pod v1.Pod) error {
+	if err := client.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete Pod: %s, %w", pod.Name, err)
 	}
 	return nil
 }
 
-// toleratesTaint checks that the pod tolerated with a specific taint.
+// toleratesTaint checks if a given PodSpec tolerates a specific Taint.
 func toleratesTaint(podSpec *v1.PodSpec, taint v1.Taint) bool {
 	for _, toleration := range podSpec.Tolerations {
 		if toleration.ToleratesTaint(&taint) {

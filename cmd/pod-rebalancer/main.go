@@ -105,7 +105,7 @@ func getCandidatePods(c kubernetes.Interface, ns string, nodes []*v1.Node, rslis
 		return nil, errors.Wrap(err, fmt.Sprint("failed to list pod for ", ns))
 	}
 	for _, po := range pods.Items {
-		if !k8sutils.IsPodReadyRunning(nil, po) {
+		if !k8sutils.IsPodReadyRunning(po) {
 			continue
 		}
 		for _, rs := range rslist {

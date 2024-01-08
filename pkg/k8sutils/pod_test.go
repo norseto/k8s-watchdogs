@@ -63,7 +63,7 @@ func TestIsPodReadyRunning(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			if IsPodReadyRunning(context.Background(), test.pod) != test.expected {
+			if IsPodReadyRunning(test.pod) != test.expected {
 				t.Errorf("unexpected result for test %v", test.description)
 			}
 		})

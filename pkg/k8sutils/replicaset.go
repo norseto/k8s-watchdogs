@@ -17,7 +17,7 @@ type ReplicaSetStatus struct {
 func NewReplicaSetStatus(rs []*appsv1.ReplicaSet) ReplicaSetStatus {
 	ret := ReplicaSetStatus{Owners: map[types.UID]int{}}
 	for _, r := range rs {
-		if *r.Spec.Replicas == 0 {
+		if r.Spec.Replicas == nil || *r.Spec.Replicas == 0 {
 			continue
 		}
 		for _, o := range r.OwnerReferences {
@@ -27,8 +27,11 @@ func NewReplicaSetStatus(rs []*appsv1.ReplicaSet) ReplicaSetStatus {
 	return ret
 }
 
-// IsRollingUpdating checks if the given ReplicaSet is rolling updating by checking its OwnerReferences.
-// It returns true if the ReplicaSet is rolling updating, otherwise false.
+// IsRollingUpdating checks if a ReplicaSet is undergoing rolling updates.
+// It takes a context and a ReplicaSet as parameters.
+// It iterates over the OwnerReferences of the ReplicaSet and checks if any of the OwnerReferences have more than one occurrence in the Owners map.
+// If it finds such an OwnerReference, it returns true.
+// Otherwise, it returns false.
 func (u *ReplicaSetStatus) IsRollingUpdating(_ context.Context, rs *appsv1.ReplicaSet) bool {
 	for _, o := range rs.OwnerReferences {
 		if u.Owners[o.UID] > 1 {
@@ -45,8 +48,28 @@ func IsPodScheduleLimited(rs appsv1.ReplicaSet) bool {
 	return podSpec.Affinity != nil || len(podSpec.NodeSelector) > 0
 }
 
-// IsPodOwnedBy checks if the given Pod is owned by the given ReplicaSet.
-// It returns true if the Pod is owned by the ReplicaSet, otherwise false.
+// IsPodOwnedBy returns true if the given Pod is owned by the specified ReplicaSet, false otherwise.
+// It compares the UID of the ReplicaSet with the UID of each owner reference in the Pod's metadata.
+// Example usage:
+//
+//	rs := &appsv1.ReplicaSet{
+//	  ObjectMeta: metav1.ObjectMeta{UID: types.UID("owner-1")},
+//	}
+//
+//	po := &corev1.Pod{
+//	  ObjectMeta: metav1.ObjectMeta{
+//	    OwnerReferences: []metav1.OwnerReference{
+//	      {UID: types.UID("owner-1")},
+//	      {UID: types.UID("owner-2")},
+//	    },
+//	  },
+//	}
+//
+// isOwned := IsPodOwnedBy(rs, po)
+// assert.True(t, isOwned)
+// po.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{UID: types.UID("owner-3")}}
+// isOwned = IsPodOwnedBy(rs, po)
+// assert.False(t, isOwned)
 func IsPodOwnedBy(rs *appsv1.ReplicaSet, po *corev1.Pod) bool {
 	uid := rs.ObjectMeta.UID
 	owners := po.ObjectMeta.OwnerReferences

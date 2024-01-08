@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
-	orev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewReplicaSetStatus(t *testing.T) {
-	rsList := []appsv1.ReplicaSet{
+	rsList := []*appsv1.ReplicaSet{
 		{
 			Spec: appsv1.ReplicaSetSpec{Replicas: int32Ptr(2)},
 			ObjectMeta: metav1.ObjectMeta{
@@ -81,9 +81,9 @@ func TestReplicaSetStatus_IsRollingUpdating(t *testing.T) {
 func TestIsPodScheduleLimited(t *testing.T) {
 	rs := appsv1.ReplicaSet{
 		Spec: appsv1.ReplicaSetSpec{
-			Template: orev1.PodTemplateSpec{
-				Spec: orev1.PodSpec{
-					Affinity: &orev1.Affinity{},
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{},
 					NodeSelector: map[string]string{
 						"key": "value",
 					},
@@ -95,8 +95,8 @@ func TestIsPodScheduleLimited(t *testing.T) {
 
 	rs = appsv1.ReplicaSet{
 		Spec: appsv1.ReplicaSetSpec{
-			Template: orev1.PodTemplateSpec{
-				Spec: orev1.PodSpec{},
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{},
 			},
 		},
 	}
@@ -104,10 +104,10 @@ func TestIsPodScheduleLimited(t *testing.T) {
 }
 
 func TestIsPodOwnedBy(t *testing.T) {
-	rs := appsv1.ReplicaSet{
+	rs := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{UID: types.UID("owner-1")},
 	}
-	po := orev1.Pod{
+	po := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			OwnerReferences: []metav1.OwnerReference{
 				{UID: types.UID("owner-1")},
@@ -117,7 +117,7 @@ func TestIsPodOwnedBy(t *testing.T) {
 	}
 	assert.True(t, IsPodOwnedBy(rs, po))
 
-	po = orev1.Pod{
+	po = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			OwnerReferences: []metav1.OwnerReference{
 				{UID: "owner-3"},

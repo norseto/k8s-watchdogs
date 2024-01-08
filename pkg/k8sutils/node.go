@@ -2,30 +2,19 @@ package k8sutils
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-/*
-GetAllNodes returns a list of untainted nodes in the Kubernetes cluster.
-
-Parameters:
-- ctx (context.Context): Context for the request.
-- c (kubernetes.Interface): Kubernetes client interface.
-
-Returns:
-- []v1.Node: List of untainted nodes.
-- error: Error, if any.
-
-Summary:
-This function retrieves all nodes from the Kubernetes cluster and filters out the nodes that do not have any taints. It returns the list of untainted nodes and an error, if any.
-*/
-func GetAllNodes(ctx context.Context, c kubernetes.Interface) ([]*v1.Node, error) {
-	all, err := c.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+// GetAllNodes retrieves a list of all nodes in the Kubernetes cluster.
+// It takes a context and a client as arguments.
+// It returns a slice of pointers to Node objects and an error.
+func GetAllNodes(ctx context.Context, client kubernetes.Interface) ([]*v1.Node, error) {
+	all, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list nodes")
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 	nodes := make([]*v1.Node, len(all.Items))
 	for i, n := range all.Items {
@@ -34,8 +23,8 @@ func GetAllNodes(ctx context.Context, c kubernetes.Interface) ([]*v1.Node, error
 	return nodes, nil
 }
 
-// CanSchedule checks if a pod can be scheduled on a given node based on various criteria.
-func CanSchedule(_ context.Context, node *v1.Node, podSpec *v1.PodSpec) bool {
+// CanSchedule checks if a given pod can be scheduled on a node based on various conditions.
+func CanSchedule(node *v1.Node, podSpec *v1.PodSpec) bool {
 	// Check Taints and Tolerations
 	if !toleratesAllTaints(node, podSpec) {
 		return false
@@ -63,7 +52,18 @@ func CanSchedule(_ context.Context, node *v1.Node, podSpec *v1.PodSpec) bool {
 	return true
 }
 
-// toleratesAllTaints checks that pod is tolerated with all taints in the node.
+// toleratesAllTaints checks whether a given node can tolerate all the taints specified in a pod's spec.
+//
+// Parameters:
+// - node (*v1.Node): The node to be checked for taint toleration.
+// - podSpec (*v1.PodSpec): The spec of the pod that contains the taints to be tolerated.
+//
+// Returns:
+// - bool: Whether the node tolerates all the taints in the pod spec.
+//
+// Summary:
+// This function iterates over the taints specified in the node's spec and checks whether the pod spec
+// has tolerations for each taint. It returns true if all the taints are tolerated and false otherwise.
 func toleratesAllTaints(node *v1.Node, podSpec *v1.PodSpec) bool {
 	for _, taint := range node.Spec.Taints {
 		if !toleratesTaint(podSpec, taint) {
@@ -73,7 +73,19 @@ func toleratesAllTaints(node *v1.Node, podSpec *v1.PodSpec) bool {
 	return true
 }
 
-// nodeMatchesNodeSelector checks that the pod matches all node selectors
+// nodeMatchesNodeSelector checks if a node matches the given node selector.
+//
+// Parameters:
+// - node (*v1.Node): The node to check.
+// - selector (*v1.NodeSelector): The node selector to match against.
+//
+// Returns:
+// - bool: Returns true if the node matches the selector, false otherwise.
+//
+// Summary:
+// This function iterates over the list of node selector terms and checks if the given node matches any of them.
+// If a matching term is found, it calls the `nodeSelectorTermMatches` function to perform the actual matching.
+// Returns true if a matching term is found, false otherwise.
 func nodeMatchesNodeSelector(node *v1.Node, selector *v1.NodeSelector) bool {
 	for _, term := range selector.NodeSelectorTerms {
 		if nodeSelectorTermMatches(node, &term) {
@@ -83,7 +95,22 @@ func nodeMatchesNodeSelector(node *v1.Node, selector *v1.NodeSelector) bool {
 	return false
 }
 
-// nodeSelectorTermMatches checks that the pod matches the specific node selector
+// nodeSelectorTermMatches checks whether a node matches a given NodeSelectorTerm.
+//
+// Parameters:
+// - node (*v1.Node): The node to check.
+// - term (*v1.NodeSelectorTerm): The NodeSelectorTerm to match against.
+//
+// Returns:
+// - bool: Whether the node matches the NodeSelectorTerm.
+//
+// Summary:
+// This function iterates through the MatchExpressions of a NodeSelectorTerm and
+// checks if the given node satisfies each expression.
+// It returns true if all expressions are satisfied.
+// Limitations:
+// This function does not support v1.NodeSelectorOpGt nor v1.NodeSelectorOpLt.
+// If these selector is specified, will return false.
 func nodeSelectorTermMatches(node *v1.Node, term *v1.NodeSelectorTerm) bool {
 	for _, expr := range term.MatchExpressions {
 		switch expr.Operator {
@@ -105,7 +132,7 @@ func nodeSelectorTermMatches(node *v1.Node, term *v1.NodeSelectorTerm) bool {
 			}
 		case v1.NodeSelectorOpGt, v1.NodeSelectorOpLt:
 			// These operator not supported.
-			return true
+			return false
 		}
 	}
 	return true

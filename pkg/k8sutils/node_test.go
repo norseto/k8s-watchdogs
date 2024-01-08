@@ -35,13 +35,13 @@ func TestCanSchedule(t *testing.T) {
 	t.Run("ReturnsFalseForNonToleratedTaints", func(t *testing.T) {
 		node := &corev1.Node{Spec: corev1.NodeSpec{Taints: []corev1.Taint{{Effect: "NoSchedule"}}}}
 		podSpec := &corev1.PodSpec{}
-		assert.False(t, CanSchedule(context.Background(), node, podSpec))
+		assert.False(t, CanSchedule(node, podSpec))
 	})
 
 	t.Run("ReturnsTrueForToleratedTaints", func(t *testing.T) {
 		node := &corev1.Node{Spec: corev1.NodeSpec{Taints: []corev1.Taint{{Effect: "NoSchedule"}}}}
 		podSpec := &corev1.PodSpec{Tolerations: []corev1.Toleration{{Effect: "NoSchedule"}}}
-		assert.True(t, CanSchedule(context.Background(), node, podSpec))
+		assert.True(t, CanSchedule(node, podSpec))
 	})
 }
 
