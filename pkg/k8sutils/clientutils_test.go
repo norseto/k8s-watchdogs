@@ -60,7 +60,7 @@ func TestGetKubeconfig(t *testing.T) {
 				tt.teardown()
 				flag.CommandLine = backup
 			}()
-			result := getKubeconfig()
+			result := getConfigFilePath()
 			if *result != tt.expected {
 				t.Errorf("expected %s, got %s", tt.expected, *result)
 			}

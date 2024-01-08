@@ -52,6 +52,19 @@ func CanSchedule(node *v1.Node, podSpec *v1.PodSpec) bool {
 	return true
 }
 
+// FilterScheduleable filters the list of nodes based on whether each node can schedule the given pod spec.
+// It takes a slice of node pointers and a pod spec as arguments.
+// It returns a new slice of node pointers that can schedule the pod spec.
+func FilterScheduleable(nodes []*v1.Node, podSpec *v1.PodSpec) []*v1.Node {
+	var list []*v1.Node
+	for _, node := range nodes {
+		if CanSchedule(node, podSpec) {
+			list = append(list, node)
+		}
+	}
+	return list
+}
+
 // toleratesAllTaints checks whether a given node can tolerate all the taints specified in a pod's spec.
 //
 // Parameters:

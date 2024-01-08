@@ -35,11 +35,11 @@ func main() {
 		log.Panic(errors.Wrap(err, "failed to list nodes"))
 	}
 
-	replicas, err := getTargetReplicaSets(client, namespace)
+	replicas, err := getTargetReplicaSets(ctx, client, namespace)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list replicaset"))
 	}
-	rs, err := getCandidatePods(client, namespace, nodes, replicas)
+	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list pods"))
 	}
@@ -78,8 +78,8 @@ func main() {
 // - ns: The namespace to search for replica sets.
 //
 // Returns an array of appsv1.ReplicaSet pointers and an error, if any.
-func getTargetReplicaSets(c kubernetes.Interface, ns string) ([]*appsv1.ReplicaSet, error) {
-	all, err := c.AppsV1().ReplicaSets(ns).List(metav1.ListOptions{IncludeUninitialized: false})
+func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns string) ([]*appsv1.ReplicaSet, error) {
+	all, err := client.AppsV1().ReplicaSets(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list replicaset")
 	}
@@ -91,7 +91,7 @@ func getTargetReplicaSets(c kubernetes.Interface, ns string) ([]*appsv1.ReplicaS
 }
 
 // getCandidatePods gets pod candidate.
-func getCandidatePods(c kubernetes.Interface, ns string, nodes []*v1.Node, rslist []*appsv1.ReplicaSet) ([]*replicaState, error) {
+func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns string, nodes []*v1.Node, replicas []*appsv1.ReplicaSet) ([]*replicaState, error) {
 	nodeMap := make(map[string]*v1.Node)
 	var stats []*replicaState
 	rsmap := make(map[types.UID]*replicaState)
@@ -100,7 +100,7 @@ func getCandidatePods(c kubernetes.Interface, ns string, nodes []*v1.Node, rslis
 		nodeMap[n.Name] = n
 	}
 
-	pods, err := c.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	pods, err := client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprint("failed to list pod for ", ns))
 	}
@@ -108,7 +108,7 @@ func getCandidatePods(c kubernetes.Interface, ns string, nodes []*v1.Node, rslis
 		if !k8sutils.IsPodReadyRunning(po) {
 			continue
 		}
-		for _, rs := range rslist {
+		for _, rs := range replicas {
 			if !k8sutils.IsPodOwnedBy(rs, &po) {
 				continue
 			}

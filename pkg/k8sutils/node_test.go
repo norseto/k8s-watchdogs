@@ -98,3 +98,56 @@ func TestNodeMatchesNodeSelector(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterScheduleable(t *testing.T) {
+	node1 := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+	}
+
+	node2 := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "node2"},
+	}
+
+	node3 := &corev1.Node{Spec: corev1.NodeSpec{Taints: []corev1.Taint{{Effect: "NoSchedule"}}}}
+
+	tests := []struct {
+		name      string
+		nodes     []*corev1.Node
+		podSpec   *corev1.PodSpec
+		wantNodes []string
+		wantErr   bool
+	}{
+		{
+			name:      "all scheduleable nodes",
+			nodes:     []*corev1.Node{node1, node2},
+			podSpec:   &corev1.PodSpec{},
+			wantNodes: []string{"node1", "node2"},
+			wantErr:   false,
+		},
+		{
+			name:      "filter out non-scheduleable nodes",
+			nodes:     []*corev1.Node{node1, node3},
+			podSpec:   &corev1.PodSpec{},
+			wantNodes: []string{"node1"},
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FilterScheduleable(tt.nodes, tt.podSpec)
+
+			// Check nodes returned and expected nodes
+			if len(got) != len(tt.wantNodes) {
+				t.Errorf("got %v, want %v", len(got), len(tt.wantNodes))
+			}
+
+			// Check each node
+			for i, gotNode := range got {
+				if gotNode.Name != tt.wantNodes[i] {
+					t.Errorf("got %v, want %v", gotNode.Name, tt.wantNodes[i])
+				}
+			}
+		})
+	}
+}
