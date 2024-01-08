@@ -8,55 +8,115 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// GetUntaintedNodes returns a list of nodes that have no taints.
-func GetUntaintedNodes(ctx context.Context, c kubernetes.Interface) ([]v1.Node, error) {
-	var nodes []v1.Node
-	all, err := c.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+/*
+GetAllNodes returns a list of untainted nodes in the Kubernetes cluster.
+
+Parameters:
+- ctx (context.Context): Context for the request.
+- c (kubernetes.Interface): Kubernetes client interface.
+
+Returns:
+- []v1.Node: List of untainted nodes.
+- error: Error, if any.
+
+Summary:
+This function retrieves all nodes from the Kubernetes cluster and filters out the nodes that do not have any taints. It returns the list of untainted nodes and an error, if any.
+*/
+func GetAllNodes(_ context.Context, c kubernetes.Interface) ([]*v1.Node, error) {
+	all, err := c.CoreV1().Nodes().List(metav1.ListOptions{IncludeUninitialized: false})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list nodes")
 	}
-	for _, n := range all.Items {
-		if len(n.Spec.Taints) < 1 {
-			nodes = append(nodes, n)
-		}
+	nodes := make([]*v1.Node, len(all.Items))
+	for i, n := range all.Items {
+		nodes[i] = n.DeepCopy()
 	}
 	return nodes, nil
 }
 
-// IsScheduleable checks whether a node is schedulable for a given pod specification.
-func IsScheduleable(node *v1.Node, spec *v1.PodSpec) bool {
-	return tolerationsTolerateTaints(spec.Tolerations, node.Spec.Taints)
-}
+// CanSchedule checks if a pod can be scheduled on a given node based on various criteria.
+func CanSchedule(node *v1.Node, pod *v1.Pod) bool {
+	// Check Taints and Tolerations
+	if !toleratesAllTaints(node, pod) {
+		return false
+	}
 
-// Function that checks if Tolerations can tolerate the given Taints
-func tolerationsTolerateTaints(tolerations []v1.Toleration, taints []v1.Taint) bool {
-	for _, taint := range taints {
-		taintNotTolerated := true
-		for _, toleration := range tolerations {
-			if toleratesTaint(&toleration, &taint) {
-				taintNotTolerated = false
-				break
+	// Check nodeSelector
+	if pod.Spec.NodeSelector != nil {
+		for key, value := range pod.Spec.NodeSelector {
+			if nodeValue, exists := node.Labels[key]; !exists || nodeValue != value {
+				return false
 			}
 		}
-		if taintNotTolerated {
+	}
+
+	// Check NodeAffinity
+	if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
+		nodeAffinity := pod.Spec.Affinity.NodeAffinity
+		if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+			if !nodeMatchesNodeSelector(node, nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// toleratesAllTaints checks that pod is tolerated with all taints in the node.
+func toleratesAllTaints(node *v1.Node, pod *v1.Pod) bool {
+	for _, taint := range node.Spec.Taints {
+		if !toleratesTaint(pod, taint) {
 			return false
 		}
 	}
 	return true
 }
 
-// Function that checks if a Taint is tolerated by a Toleration
-func toleratesTaint(toleration *v1.Toleration, taint *v1.Taint) bool {
-	if len(toleration.Effect) > 0 && toleration.Effect != taint.Effect {
-		return false
+// nodeMatchesNodeSelector checks that the pod matches all node selectors
+func nodeMatchesNodeSelector(node *v1.Node, selector *v1.NodeSelector) bool {
+	for _, term := range selector.NodeSelectorTerms {
+		if nodeSelectorTermMatches(node, &term) {
+			return true
+		}
 	}
-	if len(toleration.Key) > 0 && toleration.Key != taint.Key {
-		return false
-	}
-	if len(toleration.Operator) > 0 && toleration.Operator != v1.TolerationOpExists {
-		equalityBased := (toleration.Operator == v1.TolerationOpEqual && toleration.Value == taint.Value)
-		existsBased := toleration.Operator == v1.TolerationOpExists
-		return equalityBased || existsBased
+	return false
+}
+
+// nodeSelectorTermMatches checks that the pod matches the specific node selector
+func nodeSelectorTermMatches(node *v1.Node, term *v1.NodeSelectorTerm) bool {
+	for _, expr := range term.MatchExpressions {
+		switch expr.Operator {
+		case v1.NodeSelectorOpIn:
+			if !contains(node.Labels[expr.Key], expr.Values) {
+				return false
+			}
+		case v1.NodeSelectorOpNotIn:
+			if contains(node.Labels[expr.Key], expr.Values) {
+				return false
+			}
+		case v1.NodeSelectorOpExists:
+			if _, exists := node.Labels[expr.Key]; !exists {
+				return false
+			}
+		case v1.NodeSelectorOpDoesNotExist:
+			if _, exists := node.Labels[expr.Key]; exists {
+				return false
+			}
+		case v1.NodeSelectorOpGt, v1.NodeSelectorOpLt:
+			// These operator not supported.
+			return true
+		}
 	}
 	return true
+}
+
+// contains checks that the string is contains in the specified list
+func contains(s string, list []string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

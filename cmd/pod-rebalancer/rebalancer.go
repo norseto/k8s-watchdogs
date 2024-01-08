@@ -12,13 +12,13 @@ import (
 
 type replicaState struct {
 	replicaset *appsv1.ReplicaSet
-	nodes      []v1.Node
-	podState   []podState
+	nodes      []*v1.Node
+	podState   []*podState
 }
 
 type podState struct {
-	pod     v1.Pod
-	node    v1.Node
+	pod     *v1.Pod
+	node    *v1.Node
 	deleted bool
 }
 
@@ -42,11 +42,9 @@ func newRebalancer(current *replicaState) *rebalancer {
 // Rebalance rebalances the pods across the nodes.
 func (r *rebalancer) Rebalance(ctx context.Context, c kubernetes.Interface) (bool, error) {
 	nodeCount := len(r.current.nodes)
-	rs := r.current.replicaset
 	sr := r.specReplicas()
 
-	if nodeCount < 2 || sr < 2 || r.currentReplicas() < sr ||
-		k8sutils.IsPodScheduleLimited(*rs) {
+	if nodeCount < 2 || sr < 2 || r.currentReplicas() < sr {
 		return false, nil
 	}
 
@@ -75,11 +73,11 @@ func (r *rebalancer) Rebalance(ctx context.Context, c kubernetes.Interface) (boo
 func (r *rebalancer) deleteNodePod(ctx context.Context, c kubernetes.Interface, node string) error {
 	l := len(r.current.podState)
 	for i := 0; i < l; i++ {
-		s := &r.current.podState[i]
+		s := r.current.podState[i]
 		if s.node.Name == node && !s.deleted {
 			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
 			s.deleted = true
-			return k8sutils.DeletePod(ctx, c, s.pod)
+			return k8sutils.DeletePod(c, *s.pod)
 		}
 	}
 	return nil
