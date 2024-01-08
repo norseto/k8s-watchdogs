@@ -31,8 +31,8 @@ func DeletePod(ctx context.Context, c kubernetes.Interface, pod v1.Pod) error {
 }
 
 // toleratesTaint checks that the pod tolerated with a specific taint.
-func toleratesTaint(pod *v1.Pod, taint v1.Taint) bool {
-	for _, toleration := range pod.Spec.Tolerations {
+func toleratesTaint(podSpec *v1.PodSpec, taint v1.Taint) bool {
+	for _, toleration := range podSpec.Tolerations {
 		if toleration.ToleratesTaint(&taint) {
 			return true
 		}

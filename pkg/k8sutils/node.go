@@ -22,8 +22,8 @@ Returns:
 Summary:
 This function retrieves all nodes from the Kubernetes cluster and filters out the nodes that do not have any taints. It returns the list of untainted nodes and an error, if any.
 */
-func GetAllNodes(_ context.Context, c kubernetes.Interface) ([]*v1.Node, error) {
-	all, err := c.CoreV1().Nodes().List(metav1.ListOptions{IncludeUninitialized: false})
+func GetAllNodes(ctx context.Context, c kubernetes.Interface) ([]*v1.Node, error) {
+	all, err := c.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list nodes")
 	}
@@ -35,15 +35,15 @@ func GetAllNodes(_ context.Context, c kubernetes.Interface) ([]*v1.Node, error) 
 }
 
 // CanSchedule checks if a pod can be scheduled on a given node based on various criteria.
-func CanSchedule(node *v1.Node, pod *v1.Pod) bool {
+func CanSchedule(_ context.Context, node *v1.Node, podSpec *v1.PodSpec) bool {
 	// Check Taints and Tolerations
-	if !toleratesAllTaints(node, pod) {
+	if !toleratesAllTaints(node, podSpec) {
 		return false
 	}
 
 	// Check nodeSelector
-	if pod.Spec.NodeSelector != nil {
-		for key, value := range pod.Spec.NodeSelector {
+	if podSpec.NodeSelector != nil {
+		for key, value := range podSpec.NodeSelector {
 			if nodeValue, exists := node.Labels[key]; !exists || nodeValue != value {
 				return false
 			}
@@ -51,8 +51,8 @@ func CanSchedule(node *v1.Node, pod *v1.Pod) bool {
 	}
 
 	// Check NodeAffinity
-	if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
-		nodeAffinity := pod.Spec.Affinity.NodeAffinity
+	if podSpec.Affinity != nil && podSpec.Affinity.NodeAffinity != nil {
+		nodeAffinity := podSpec.Affinity.NodeAffinity
 		if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
 			if !nodeMatchesNodeSelector(node, nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution) {
 				return false
@@ -64,9 +64,9 @@ func CanSchedule(node *v1.Node, pod *v1.Pod) bool {
 }
 
 // toleratesAllTaints checks that pod is tolerated with all taints in the node.
-func toleratesAllTaints(node *v1.Node, pod *v1.Pod) bool {
+func toleratesAllTaints(node *v1.Node, podSpec *v1.PodSpec) bool {
 	for _, taint := range node.Spec.Taints {
-		if !toleratesTaint(pod, taint) {
+		if !toleratesTaint(podSpec, taint) {
 			return false
 		}
 	}

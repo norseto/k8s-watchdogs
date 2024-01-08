@@ -35,13 +35,31 @@ func (r *rebalancer) currentReplicas() int32 {
 	return r.current.replicaset.Status.Replicas
 }
 
+func (r *rebalancer) scheduleableNodeCount(ctx context.Context) int32 {
+	if len(r.current.podState) < 1 {
+		return 0
+	}
+	pod := r.current.podState[0].pod
+	if pod == nil {
+		return 0
+	}
+
+	var nodes int32
+	for _, n := range r.current.nodes {
+		if n.Spec.Unschedulable || !k8sutils.CanSchedule(ctx, n, &pod.Spec) {
+			continue
+		}
+		nodes++
+	}
+	return nodes
+}
+
 func newRebalancer(current *replicaState) *rebalancer {
 	return &rebalancer{current: current, maxRate: .25}
 }
 
-// Rebalance rebalances the pods across the nodes.
 func (r *rebalancer) Rebalance(ctx context.Context, c kubernetes.Interface) (bool, error) {
-	nodeCount := len(r.current.nodes)
+	nodeCount := r.scheduleableNodeCount(ctx)
 	sr := r.specReplicas()
 
 	if nodeCount < 2 || sr < 2 || r.currentReplicas() < sr {
