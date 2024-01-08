@@ -57,7 +57,7 @@ func main() {
 			log.Info(fmt.Sprint("May under rolling update. Leave untouched. rs: ", name))
 			continue
 		}
-		result, err := newRebalancer(r).Rebalance(client)
+		result, err := newRebalancer(r).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(errors.Wrap(err, fmt.Sprint("failed to rebalance rs: ", name)))
 		} else if result {

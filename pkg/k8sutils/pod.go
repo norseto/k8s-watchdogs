@@ -23,16 +23,16 @@ func IsPodReadyRunning(_ context.Context, po v1.Pod) bool {
 }
 
 // DeletePod deletes a pod using the Kubernetes client.
-func DeletePod(c kubernetes.Interface, pod v1.Pod) error {
-	if err := c.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{}); err != nil {
+func DeletePod(ctx context.Context, c kubernetes.Interface, pod v1.Pod) error {
+	if err := c.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 		return errors.Wrap(err, "failed to delete Pod: "+pod.Name)
 	}
 	return nil
 }
 
 // toleratesTaint checks that the pod tolerated with a specific taint.
-func toleratesTaint(pod *v1.Pod, taint v1.Taint) bool {
-	for _, toleration := range pod.Spec.Tolerations {
+func toleratesTaint(podSpec *v1.PodSpec, taint v1.Taint) bool {
+	for _, toleration := range podSpec.Tolerations {
 		if toleration.ToleratesTaint(&taint) {
 			return true
 		}

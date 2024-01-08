@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -34,12 +35,31 @@ func (r *rebalancer) currentReplicas() int32 {
 	return r.current.replicaset.Status.Replicas
 }
 
+func (r *rebalancer) scheduleableNodeCount(ctx context.Context) int32 {
+	if len(r.current.podState) < 1 {
+		return 0
+	}
+	pod := r.current.podState[0].pod
+	if pod == nil {
+		return 0
+	}
+
+	var nodes int32
+	for _, n := range r.current.nodes {
+		if n.Spec.Unschedulable || !k8sutils.CanSchedule(ctx, n, &pod.Spec) {
+			continue
+		}
+		nodes++
+	}
+	return nodes
+}
+
 func newRebalancer(current *replicaState) *rebalancer {
 	return &rebalancer{current: current, maxRate: .25}
 }
 
-func (r *rebalancer) Rebalance(c kubernetes.Interface) (bool, error) {
-	nodeCount := len(r.current.nodes)
+func (r *rebalancer) Rebalance(ctx context.Context, c kubernetes.Interface) (bool, error) {
+	nodeCount := r.scheduleableNodeCount(ctx)
 	sr := r.specReplicas()
 
 	if nodeCount < 2 || sr < 2 || r.currentReplicas() < sr {
