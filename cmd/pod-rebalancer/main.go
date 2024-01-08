@@ -30,16 +30,16 @@ func main() {
 		log.Panic(errors.Wrap(err, "failed to create client"))
 	}
 
-	nodes, err := k8sutils.GetUntaintedNodes(ctx, client)
+	nodes, err := k8sutils.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list nodes"))
 	}
 
-	replicasets, err := getTargetReplicaSets(client, namespace)
+	replicas, err := getTargetReplicaSets(client, namespace)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list replicaset"))
 	}
-	rs, err := getCandidatePods(client, namespace, nodes, replicasets)
+	rs, err := getCandidatePods(client, namespace, nodes, replicas)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list pods"))
 	}
@@ -49,7 +49,7 @@ func main() {
 		return
 	}
 
-	rsstat := k8sutils.NewReplicaSetStatus(replicasets)
+	rsstat := k8sutils.NewReplicaSetStatus(replicas)
 	rebalanced := 0
 	for _, r := range rs {
 		name := r.replicaset.Name
@@ -71,30 +71,28 @@ func main() {
 	log.Info("Done multiple pod rs rebalancer. Rebalanced ", rebalanced, " ReplicaSet(s)")
 }
 
-// getTargetReplicaSets gets target replicaset.
-// Parameter:
+// getTargetReplicaSets gets the target replica sets in a given namespace.
 //
-//	c *kubernetes.Clientset : clientset
-//	ns string : namespace of replicaset
+// Parameters:
+// - c: The Kubernetes client interface.
+// - ns: The namespace to search for replica sets.
 //
-// Returns:
-//
-//	[]appsv1.ReplicaSet : All target replicasets that does not hace
-//	                      affinity nor tolerations nor nodeselector
-//	error : error if error happens
-func getTargetReplicaSets(c kubernetes.Interface, ns string) ([]appsv1.ReplicaSet, error) {
-	var replicasets []appsv1.ReplicaSet
+// Returns an array of appsv1.ReplicaSet pointers and an error, if any.
+func getTargetReplicaSets(c kubernetes.Interface, ns string) ([]*appsv1.ReplicaSet, error) {
 	all, err := c.AppsV1().ReplicaSets(ns).List(metav1.ListOptions{IncludeUninitialized: false})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list replicaset")
 	}
-	replicasets = append(replicasets, all.Items...)
-	return replicasets, nil
+	replicas := make([]*appsv1.ReplicaSet, len(all.Items))
+	for i, rs := range all.Items {
+		replicas[i] = rs.DeepCopy()
+	}
+	return replicas, nil
 }
 
 // getCandidatePods gets pod candidate.
-func getCandidatePods(c kubernetes.Interface, ns string, nodes []v1.Node, rslist []appsv1.ReplicaSet) ([]*replicaState, error) {
-	nodeMap := make(map[string]v1.Node)
+func getCandidatePods(c kubernetes.Interface, ns string, nodes []*v1.Node, rslist []*appsv1.ReplicaSet) ([]*replicaState, error) {
+	nodeMap := make(map[string]*v1.Node)
 	var stats []*replicaState
 	rsmap := make(map[types.UID]*replicaState)
 
@@ -111,18 +109,18 @@ func getCandidatePods(c kubernetes.Interface, ns string, nodes []v1.Node, rslist
 			continue
 		}
 		for _, rs := range rslist {
-			if !k8sutils.IsPodOwnedBy(rs, po) {
+			if !k8sutils.IsPodOwnedBy(rs, &po) {
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
-			postat := podState{pod: po, node: node}
+			postat := podState{pod: po.DeepCopy(), node: node}
 			rstat, ok := rsmap[rs.ObjectMeta.UID]
 			if !ok {
-				rstat = &replicaState{replicaset: &rs, nodes: nodes}
+				rstat = &replicaState{replicaset: rs, nodes: nodes}
 				rsmap[rs.ObjectMeta.UID] = rstat
 				stats = append(stats, rstat)
 			}
-			rstat.podState = append(rstat.podState, postat)
+			rstat.podState = append(rstat.podState, &postat)
 			break
 		}
 	}

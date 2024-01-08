@@ -3,7 +3,7 @@ package k8sutils
 import (
 	"context"
 	appsv1 "k8s.io/api/apps/v1"
-	orev1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -14,7 +14,7 @@ type ReplicaSetStatus struct {
 
 // NewReplicaSetStatus returns a new instance of ReplicaSetStatus interface.
 // It initializes and returns a rsOwners struct by iterating over the given list of ReplicaSets.
-func NewReplicaSetStatus(rs []appsv1.ReplicaSet) ReplicaSetStatus {
+func NewReplicaSetStatus(rs []*appsv1.ReplicaSet) ReplicaSetStatus {
 	ret := ReplicaSetStatus{Owners: map[types.UID]int{}}
 	for _, r := range rs {
 		if *r.Spec.Replicas == 0 {
@@ -47,7 +47,7 @@ func IsPodScheduleLimited(rs appsv1.ReplicaSet) bool {
 
 // IsPodOwnedBy checks if the given Pod is owned by the given ReplicaSet.
 // It returns true if the Pod is owned by the ReplicaSet, otherwise false.
-func IsPodOwnedBy(rs appsv1.ReplicaSet, po orev1.Pod) bool {
+func IsPodOwnedBy(rs *appsv1.ReplicaSet, po *corev1.Pod) bool {
 	uid := rs.ObjectMeta.UID
 	owners := po.ObjectMeta.OwnerReferences
 	for _, o := range owners {
