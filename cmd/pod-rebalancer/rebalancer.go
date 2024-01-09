@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/pkg/k8core"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
-
-	"github.com/norseto/k8s-watchdogs/pkg/k8sutils"
 )
 
 // replicaState represents the state of a replica set.
@@ -68,7 +67,7 @@ func (r *rebalancer) filterSchedulables() {
 		return
 	}
 
-	nodes := k8sutils.FilterScheduleable(r.current.nodes, &firstPod.Spec)
+	nodes := k8core.FilterScheduleable(r.current.nodes, &firstPod.Spec)
 	r.current.nodes = nodes
 }
 
@@ -130,7 +129,7 @@ func (r *rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, 
 		if s.node.Name == node && !s.deleted {
 			log.Debug("Deleting pod " + s.pod.Name + " in " + node)
 			s.deleted = true
-			return k8sutils.DeletePod(ctx, client, *s.pod)
+			return k8core.DeletePod(ctx, client, *s.pod)
 		}
 	}
 	return nil

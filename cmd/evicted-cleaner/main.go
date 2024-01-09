@@ -5,7 +5,8 @@ package main
 
 import (
 	"context"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sutils"
+	"github.com/norseto/k8s-watchdogs/pkg/k8core"
+	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -21,7 +22,7 @@ func main() {
 	var client kubernetes.Interface
 
 	ctx := context.Background()
-	client, err := k8sutils.NewClientset()
+	client, err := k8sclient.NewClientset()
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to create client"))
 	}
@@ -40,7 +41,7 @@ func main() {
 
 	deleted := 0
 	for _, pod := range evicteds {
-		if err := k8sutils.DeletePod(ctx, client, pod); err != nil {
+		if err := k8core.DeletePod(ctx, client, pod); err != nil {
 			log.Info(err)
 		} else {
 			deleted = deleted + 1

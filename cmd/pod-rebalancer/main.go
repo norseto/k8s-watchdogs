@@ -6,6 +6,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/pkg/k8apps"
+	"github.com/norseto/k8s-watchdogs/pkg/k8core"
+	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -14,8 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/norseto/k8s-watchdogs/pkg/k8sutils"
 )
 
 func main() {
@@ -25,12 +26,12 @@ func main() {
 
 	log.Info("Starting multiple pod rs rebalancer...")
 
-	client, err := k8sutils.NewClientset()
+	client, err := k8sclient.NewClientset()
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to create client"))
 	}
 
-	nodes, err := k8sutils.GetAllNodes(ctx, client)
+	nodes, err := k8core.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Panic(errors.Wrap(err, "failed to list nodes"))
 	}
@@ -49,7 +50,7 @@ func main() {
 		return
 	}
 
-	rsstat := k8sutils.NewReplicaSetStatus(replicas)
+	rsstat := k8apps.NewReplicaSetStatus(replicas)
 	rebalanced := 0
 	for _, r := range rs {
 		name := r.replicaset.Name
@@ -105,11 +106,11 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 		return nil, errors.Wrap(err, fmt.Sprint("failed to list pod for ", ns))
 	}
 	for _, po := range pods.Items {
-		if !k8sutils.IsPodReadyRunning(po) {
+		if !k8core.IsPodReadyRunning(po) {
 			continue
 		}
 		for _, rs := range replicas {
-			if !k8sutils.IsPodOwnedBy(rs, &po) {
+			if !k8apps.IsPodOwnedBy(rs, &po) {
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
