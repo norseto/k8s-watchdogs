@@ -113,14 +113,14 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
-			postat := podState{pod: po.DeepCopy(), node: node}
+			postat := podStatus{pod: po.DeepCopy(), node: node}
 			rstat, ok := rsmap[rs.ObjectMeta.UID]
 			if !ok {
 				rstat = &replicaState{replicaset: rs, nodes: nodes}
 				rsmap[rs.ObjectMeta.UID] = rstat
 				stats = append(stats, rstat)
 			}
-			rstat.podState = append(rstat.podState, &postat)
+			rstat.podStatus = append(rstat.podStatus, &postat)
 			break
 		}
 	}
