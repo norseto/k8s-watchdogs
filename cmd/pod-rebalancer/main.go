@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/k8apps"
 	"github.com/norseto/k8s-watchdogs/pkg/k8core"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
@@ -24,7 +25,7 @@ func main() {
 	var namespace = metav1.NamespaceAll
 	var ctx = context.Background()
 
-	log.Info("Starting multiple pod rs rebalancer...")
+	log.Info("Starting multiple pod rs Rebalancer...")
 
 	client, err := k8sclient.NewClientset()
 	if err != nil {
@@ -53,12 +54,12 @@ func main() {
 	rsstat := k8apps.NewReplicaSetStatus(replicas)
 	rebalanced := 0
 	for _, r := range rs {
-		name := r.replicaset.Name
-		if rsstat.IsRollingUpdating(ctx, r.replicaset) {
+		name := r.Replicaset.Name
+		if rsstat.IsRollingUpdating(ctx, r.Replicaset) {
 			log.Info(fmt.Sprint("May under rolling update. Leave untouched. rs: ", name))
 			continue
 		}
-		result, err := newRebalancer(r).Rebalance(ctx, client)
+		result, err := rebalancer.NewRebalancer(r).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(errors.Wrap(err, fmt.Sprint("failed to rebalance rs: ", name)))
 		} else if result {
@@ -69,16 +70,10 @@ func main() {
 		}
 	}
 
-	log.Info("Done multiple pod rs rebalancer. Rebalanced ", rebalanced, " ReplicaSet(s)")
+	log.Info("Done multiple pod rs Rebalancer. Rebalanced ", rebalanced, " ReplicaSet(s)")
 }
 
-// getTargetReplicaSets gets the target replica sets in a given namespace.
-//
-// Parameters:
-// - c: The Kubernetes client interface.
-// - ns: The namespace to search for replica sets.
-//
-// Returns an array of appsv1.ReplicaSet pointers and an error, if any.
+// getTargetReplicaSets gets target replica sets in a namespace.
 func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns string) ([]*appsv1.ReplicaSet, error) {
 	all, err := client.AppsV1().ReplicaSets(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -92,10 +87,10 @@ func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns s
 }
 
 // getCandidatePods gets pod candidate.
-func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns string, nodes []*v1.Node, replicas []*appsv1.ReplicaSet) ([]*replicaState, error) {
+func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns string, nodes []*v1.Node, replicas []*appsv1.ReplicaSet) ([]*rebalancer.ReplicaState, error) {
 	nodeMap := make(map[string]*v1.Node)
-	var stats []*replicaState
-	rsmap := make(map[types.UID]*replicaState)
+	var stats []*rebalancer.ReplicaState
+	rsmap := make(map[types.UID]*rebalancer.ReplicaState)
 
 	for _, n := range nodes {
 		nodeMap[n.Name] = n
@@ -114,14 +109,14 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
-			postat := podStatus{pod: po.DeepCopy(), node: node}
+			postat := rebalancer.PodStatus{Pod: po.DeepCopy(), Node: node}
 			rstat, ok := rsmap[rs.ObjectMeta.UID]
 			if !ok {
-				rstat = &replicaState{replicaset: rs, nodes: nodes}
+				rstat = &rebalancer.ReplicaState{Replicaset: rs, Nodes: nodes}
 				rsmap[rs.ObjectMeta.UID] = rstat
 				stats = append(stats, rstat)
 			}
-			rstat.podStatus = append(rstat.podStatus, &postat)
+			rstat.PodStatus = append(rstat.PodStatus, &postat)
 			break
 		}
 	}
