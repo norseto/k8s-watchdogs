@@ -44,7 +44,7 @@ func (r *Rebalancer) specReplicas() int32 {
 
 // currentReplicas returns the number of replicas currently running in the ReplicaSet.
 func (r *Rebalancer) currentReplicas() int32 {
-	if r.current == nil || r.current.Replicaset == nil || r.current.Replicaset.Spec.Replicas == nil {
+	if r.current == nil || r.current.Replicaset == nil {
 		return 0
 	}
 	return r.current.Replicaset.Status.Replicas

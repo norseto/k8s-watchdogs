@@ -25,6 +25,11 @@ func GetAllNodes(ctx context.Context, client kubernetes.Interface) ([]*v1.Node, 
 
 // CanSchedule checks if a given pod can be scheduled on a node based on various conditions.
 func CanSchedule(node *v1.Node, podSpec *v1.PodSpec) bool {
+	// Check schedulability
+	if node.Spec.Unschedulable {
+		return false
+	}
+
 	// Check Taints and Tolerations
 	if !toleratesAllTaints(node, podSpec) {
 		return false
