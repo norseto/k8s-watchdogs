@@ -1,4 +1,4 @@
-package k8apps
+package k8sapps
 
 import (
 	"context"

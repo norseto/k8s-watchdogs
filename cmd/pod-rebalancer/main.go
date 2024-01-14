@@ -31,7 +31,7 @@ func main() {
 		log.Panic(fmt.Errorf("failed to create client: %w", err))
 	}
 
-	nodes, err := k8core.GetAllNodes(ctx, client)
+	nodes, err := k8score.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Panic(fmt.Errorf("failed to list nodes: %w", err))
 	}
@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 
-	rsstat := k8apps.NewReplicaSetStatus(replicas)
+	rsstat := k8sapps.NewReplicaSetStatus(replicas)
 	rebalanced := 0
 	for _, r := range rs {
 		name := r.Replicaset.Name
@@ -100,11 +100,11 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 		return nil, fmt.Errorf("failed to list pod for: %s, error: %w", ns, err)
 	}
 	for _, po := range pods.Items {
-		if !k8core.IsPodReadyRunning(po) {
+		if !k8score.IsPodReadyRunning(po) {
 			continue
 		}
 		for _, rs := range replicas {
-			if !k8apps.IsPodOwnedBy(rs, &po) {
+			if !k8sapps.IsPodOwnedBy(rs, &po) {
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]

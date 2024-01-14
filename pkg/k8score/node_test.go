@@ -1,4 +1,4 @@
-package k8core
+package k8score
 
 import (
 	"context"

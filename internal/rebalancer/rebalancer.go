@@ -67,7 +67,7 @@ func (r *Rebalancer) filterSchedulables() {
 		return
 	}
 
-	nodes := k8core.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
+	nodes := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
 	r.current.Nodes = nodes
 }
 
@@ -129,7 +129,7 @@ func (r *Rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, 
 		if s.Node.Name == node && !s.deleted {
 			log.Debug("Deleting Pod " + s.Pod.Name + " in " + node)
 			s.deleted = true
-			return k8core.DeletePod(ctx, client, *s.Pod)
+			return k8score.DeletePod(ctx, client, *s.Pod)
 		}
 	}
 	return nil

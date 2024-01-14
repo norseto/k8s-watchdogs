@@ -1,54 +1,13 @@
-package k8core
+package k8score
 
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testclient "k8s.io/client-go/kubernetes/fake"
 	"testing"
 )
-
-// MockKubernetesClient is a mock implementation of the kubernetes.Interface interface
-type MockKubernetesClient struct {
-	mock.Mock
-}
-
-func (m *MockKubernetesClient) CoreV1() *MockCoreV1Interface {
-	ret := m.Called()
-	var r0 *MockCoreV1Interface
-	if ret.Get(0) != nil {
-		r0 = ret.Get(0).(*MockCoreV1Interface)
-	}
-	return r0
-}
-
-type MockCoreV1Interface struct {
-	mock.Mock
-}
-
-func (m *MockCoreV1Interface) Pods(namespace string) *MockPodInterface {
-	ret := m.Called(namespace)
-	var r0 *MockPodInterface
-	if ret.Get(0) != nil {
-		r0 = ret.Get(0).(*MockPodInterface)
-	}
-	return r0
-}
-
-type MockPodInterface struct {
-	mock.Mock
-}
-
-func (m *MockPodInterface) Delete(ctx context.Context, name string, options metav1.DeleteOptions) error {
-	ret := m.Called(ctx, name, options)
-	var r0 error
-	if ret.Get(0) != nil {
-		r0 = ret.Get(0).(error)
-	}
-	return r0
-}
 
 func TestIsPodReadyRunning(t *testing.T) {
 	tests := []struct {
@@ -124,6 +83,54 @@ func TestToleratesTaint(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			if toleratesTaint(test.podSpec, myTaint) != test.expected {
 				t.Errorf("unexpected result for test %v", test.description)
+			}
+		})
+	}
+}
+
+//
+func TestIsEvicted(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      v1.Pod
+		expected bool
+	}{
+		{
+			name: "PodNotFailed",
+			pod: v1.Pod{
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "PodFailedButNotEvicted",
+			pod: v1.Pod{
+				Status: v1.PodStatus{
+					Phase:  v1.PodFailed,
+					Reason: "NotEvicted",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "PodFailedAndEvicted",
+			pod: v1.Pod{
+				Status: v1.PodStatus{
+					Phase:  v1.PodFailed,
+					Reason: reasonEvicted,
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsEvicted(context.Background(), tt.pod)
+			if got != tt.expected {
+				t.Errorf("IsEvicted() = %v, expected %v", got, tt.expected)
 			}
 		})
 	}

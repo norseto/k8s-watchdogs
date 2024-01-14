@@ -13,10 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	reasonEvicted = "Evicted"
-)
-
 func main() {
 	var client kubernetes.Interface
 
@@ -37,27 +33,18 @@ func main() {
 
 	var evicteds []v1.Pod
 	for _, pod := range pods.Items {
-		if isEvicted(nil, pod) {
+		if k8score.IsEvicted(nil, pod) {
 			evicteds = append(evicteds, pod)
 		}
 	}
 
 	deleted := 0
 	for _, pod := range evicteds {
-		if err := k8core.DeletePod(ctx, client, pod); err != nil {
+		if err := k8score.DeletePod(ctx, client, pod); err != nil {
 			logger.Error(err, "failed to delete pod", "pod", pod)
 		} else {
 			deleted = deleted + 1
 		}
 	}
 	logger.Info("pods delete result", "deleted", deleted, "evicted", len(evicteds))
-}
-
-// isEvicted returns the pod is already Evicted
-func isEvicted(_ context.Context, pod v1.Pod) bool {
-	status := pod.Status
-	if status.Phase == v1.PodFailed && status.Reason == reasonEvicted {
-		return true
-	}
-	return false
 }
