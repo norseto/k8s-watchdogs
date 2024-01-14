@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
-	"github.com/norseto/k8s-watchdogs/pkg/k8apps"
-	"github.com/norseto/k8s-watchdogs/pkg/k8core"
+	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
+	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"

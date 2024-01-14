@@ -3,7 +3,7 @@ package rebalancer
 import (
 	"context"
 	"fmt"
-	"github.com/norseto/k8s-watchdogs/pkg/k8core"
+	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
