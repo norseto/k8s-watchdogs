@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/go-logr/logr"
+	"github.com/spf13/cobra"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -50,4 +51,10 @@ func FromContext(ctx context.Context, keyAndValues ...interface{}) logr.Logger {
 //	The modified context with the added logr.Logger.
 func WithContext(ctx context.Context, log logr.Logger) context.Context {
 	return clog.IntoContext(ctx, log)
+}
+
+func SetCmdContext(ctx context.Context, cmd *cobra.Command) *cobra.Command {
+	cmd.SetContext(WithContext(
+		ctx, FromContext(ctx, "cmd", cmd.Use)))
+	return cmd
 }
