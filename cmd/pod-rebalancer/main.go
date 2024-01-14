@@ -10,8 +10,8 @@ import (
 	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 
-	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,27 +22,33 @@ import (
 func main() {
 	var client kubernetes.Interface
 	var namespace = metav1.NamespaceAll
-	var ctx = context.Background()
+
+	ctx := logger.WithContext(context.Background(), logger.InitLogger())
+	log := logger.FromContext(ctx, "cmd", "pod-rebalancer")
 
 	log.Info("Starting multiple pod rs Rebalancer...")
 
 	client, err := k8sclient.NewClientset()
 	if err != nil {
-		log.Panic(fmt.Errorf("failed to create client: %w", err))
+		log.Error(err, "failed to create client")
+		panic(err)
 	}
 
 	nodes, err := k8score.GetAllNodes(ctx, client)
 	if err != nil {
-		log.Panic(fmt.Errorf("failed to list nodes: %w", err))
+		log.Error(err, "failed to list nodes")
+		panic(err)
 	}
 
 	replicas, err := getTargetReplicaSets(ctx, client, namespace)
 	if err != nil {
-		log.Panic(fmt.Errorf("failed to list replicaset: %w", err))
+		log.Error(err, "failed to get replicaset")
+		panic(err)
 	}
 	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
 	if err != nil {
-		log.Panic(fmt.Errorf("failed to list pods: %w", err))
+		log.Error(err, "failed to list pods")
+		panic(err)
 	}
 
 	if len(rs) < 1 {
@@ -55,21 +61,21 @@ func main() {
 	for _, r := range rs {
 		name := r.Replicaset.Name
 		if rsstat.IsRollingUpdating(ctx, r.Replicaset) {
-			log.Info(fmt.Sprintf("May under rolling update. Leave untouched. rs: %s", name))
+			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
 		result, err := rebalancer.NewRebalancer(r).Rebalance(ctx, client)
 		if err != nil {
-			log.Error(fmt.Errorf("failed to rebalance rs: %s, error: %w", name, err))
+			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {
-			log.Info(fmt.Sprintf("Rebalanced rs: %s", name))
+			log.Info("Rebalanced", "rs", name)
 			rebalanced++
 		} else {
-			log.Debug(fmt.Sprintf("No need to rebalance rs: %s", name))
+			log.V(1).Info("No need to rebalance", "rs", name)
 		}
 	}
 
-	log.Info(fmt.Sprintf("Done multiple pod rs Rebalancer. Rebalanced %d ReplicaSet(s)", rebalanced))
+	log.Info("Done multiple pod rs Rebalancer", "rebalanced", rebalanced)
 }
 
 // getTargetReplicaSets gets target replica sets in a namespace.
