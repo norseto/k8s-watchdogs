@@ -11,12 +11,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var cleanEvictedCmd = &cobra.Command{
-	Use:   "clean-evicted",
-	Short: "Clean evicted pods",
-	Run: func(cmd *cobra.Command, args []string) {
-		cleanEvictedPods(cmd.Context())
-	},
+// NewCleanEvictedCmd returns a new Cobra command for cleaning evicted pods.
+// It creates and returns a command with the given Use and Short descriptions,
+// and sets the Run function to execute the cleanEvictedPods function.
+func NewCleanEvictedCmd() *cobra.Command {
+	// cleanEvictedCmd represents the clean-evicted command
+	return &cobra.Command{
+		Use:   "clean-evicted",
+		Short: "Clean evicted pods",
+		Run: func(cmd *cobra.Command, args []string) {
+			cleanEvictedPods(cmd.Context())
+		},
+	}
 }
 
 func cleanEvictedPods(ctx context.Context) {

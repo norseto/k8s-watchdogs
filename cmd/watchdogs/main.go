@@ -20,11 +20,10 @@ func main() {
 		},
 	}
 	rootCmd.SetContext(ctx)
-	logger.SetCmdContext(ctx, cleanEvictedCmd)
-
 	rootCmd.AddCommand(
-		cleanEvictedCmd,
+		NewCleanEvictedCmd(),
 	)
+	logger.SetCmdContext(ctx, rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Error(err, "Failed to execute command")

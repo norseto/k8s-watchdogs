@@ -53,8 +53,21 @@ func WithContext(ctx context.Context, log logr.Logger) context.Context {
 	return clog.IntoContext(ctx, log)
 }
 
-func SetCmdContext(ctx context.Context, cmd *cobra.Command) *cobra.Command {
-	cmd.SetContext(WithContext(
-		ctx, FromContext(ctx, "cmd", cmd.Use)))
-	return cmd
+func SetCmdContext(ctx context.Context, cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		c.SetContext(WithContext(
+			ctx, FromContext(ctx, "cmd", cmd.Use)))
+	}
 }
+
+//func ignoreZapOptions(cmd *cobra.Command) {
+//	//   - zap-devel:
+//	//     Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn)
+//	//     Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
+//	//   - zap-encoder: Zap log encoding (one of 'json' or 'console')
+//	//   - zap-log-level: Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error',
+//	//     or any integer value > 0 which corresponds to custom debug levels of increasing verbosity").
+//	//   - zap-stacktrace-level: Zap Level at and above which stacktraces are captured (one of 'info', 'error' or 'panic')
+//	//   - zap-time-encoding: Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'),
+//	//     Defaults to 'epoch'.
+//}
