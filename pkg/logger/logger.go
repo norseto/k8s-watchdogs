@@ -53,21 +53,38 @@ func WithContext(ctx context.Context, log logr.Logger) context.Context {
 	return clog.IntoContext(ctx, log)
 }
 
+// SetCmdContext sets the context for a given command and all its subcommands.
+// It ignores zap options for the command and all subcommands.
+// It sets the context for each subcommand by adding the command's name and usage to the context.
 func SetCmdContext(ctx context.Context, cmd *cobra.Command) {
+	ignoreZapOptions(cmd)
 	for _, c := range cmd.Commands() {
+		ignoreZapOptions(c)
 		c.SetContext(WithContext(
 			ctx, FromContext(ctx, "cmd", cmd.Use)))
 	}
 }
 
-//func ignoreZapOptions(cmd *cobra.Command) {
-//	//   - zap-devel:
-//	//     Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn)
-//	//     Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
-//	//   - zap-encoder: Zap log encoding (one of 'json' or 'console')
-//	//   - zap-log-level: Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error',
-//	//     or any integer value > 0 which corresponds to custom debug levels of increasing verbosity").
-//	//   - zap-stacktrace-level: Zap Level at and above which stacktraces are captured (one of 'info', 'error' or 'panic')
-//	//   - zap-time-encoding: Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'),
-//	//     Defaults to 'epoch'.
-//}
+// ignoreZapOptions sets up hidden flags for zap logger options.
+// It takes a *cobra.Command as input.
+// The function retrieves the flags from the command and defines hidden bool and string flags
+// for the zap logger options.
+// The zap logger options include: "zap-encoder", "zap-log-level", "zap-stacktrace-level",
+// and "zap-time-encoding". For each option, a corresponding flag is defined and marked as hidden.
+// This function does not return anything.
+func ignoreZapOptions(cmd *cobra.Command) {
+	flg := cmd.Flags()
+	options := []string{
+		"zap-encoder",
+		"zap-log-level",
+		"zap-stacktrace-level",
+		"zap-time-encoding",
+	}
+	flg.BoolP("zap-devel", "", false, "")
+	_ = flg.MarkHidden("zap-devel")
+
+	for _, o := range options {
+		flg.StringP(o, "", "", "")
+		_ = flg.MarkHidden(o)
+	}
+}
