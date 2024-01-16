@@ -19,7 +19,6 @@ func main() {
 			_ = cmd.Usage()
 		},
 	}
-	rootCmd.SetContext(ctx)
 	rootCmd.AddCommand(
 		NewCleanEvictedCmd(),
 	)

@@ -57,11 +57,14 @@ func WithContext(ctx context.Context, log logr.Logger) context.Context {
 // It ignores zap options for the command and all subcommands.
 // It sets the context for each subcommand by adding the command's name and usage to the context.
 func SetCmdContext(ctx context.Context, cmd *cobra.Command) {
+	cmdContext := WithContext(
+		ctx, FromContext(ctx, "cmd", cmd.Use))
+	cmd.SetContext(cmdContext)
 	ignoreZapOptions(cmd)
 	for _, c := range cmd.Commands() {
 		ignoreZapOptions(c)
 		c.SetContext(WithContext(
-			ctx, FromContext(ctx, "cmd", cmd.Use)))
+			cmdContext, FromContext(cmdContext, "subcmd", c.Use)))
 	}
 }
 
