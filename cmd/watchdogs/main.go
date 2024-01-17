@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
 )
 
 func main() {
-	ctx := logger.WithContext(context.Background(), logger.InitLogger())
-	log := logger.FromContext(ctx, "cmd", "k8s-watchdogs")
+	ctx := context.Background()
 
 	var rootCmd = &cobra.Command{
 		Use:   "watchdogs",
@@ -19,10 +19,11 @@ func main() {
 			_ = cmd.Usage()
 		},
 	}
+	rootCmd.SetContext(ctx)
+	logger.InitLogger(rootCmd)
 	rootCmd.AddCommand(
 		NewCleanEvictedCmd(),
 	)
-	logger.SetCmdContext(ctx, rootCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Error(err, "Failed to execute command")

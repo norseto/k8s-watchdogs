@@ -3,24 +3,41 @@ package logger
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// InitLogger initializes a logger using default configuration options.
-// The logger is configured based on command line flags.
-//
-// It returns a logr.Logger instance.
-func InitLogger() logr.Logger {
+// InitLogger initializes the logger configuration.
+func InitLogger(rootCmd *cobra.Command) {
+	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
+		initLogger(cmd)
+	}
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+		key := "subcmd"
+		if !cmd.HasParent() {
+			key = "cmd"
+			initLogger(rootCmd)
+		}
+		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, cmd.Use)))
+	}
+}
+
+func initLogger(rootCmd *cobra.Command) {
 	opts := zap.Options{
 		Development: false,
 	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	return zap.New(zap.UseFlagOptions(&opts))
+	BindPFlags(&opts, rootCmd.PersistentFlags())
+	cmdline := makeCommandLine(rootCmd.PersistentFlags())
+	flagSet := flag.NewFlagSet("standard", flag.ContinueOnError)
+	opts.BindFlags(flagSet)
+	_ = flagSet.Parse(cmdline)
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	rootCmd.SetContext(WithContext(rootCmd.Context(), logger))
 }
 
 // FromContext returns a logr.Logger instance based on the provided context and key-value pairs.
@@ -53,41 +70,42 @@ func WithContext(ctx context.Context, log logr.Logger) context.Context {
 	return clog.IntoContext(ctx, log)
 }
 
-// SetCmdContext sets the context for a given command and all its subcommands.
-// It ignores zap options for the command and all subcommands.
-// It sets the context for each subcommand by adding the command's name and usage to the context.
-func SetCmdContext(ctx context.Context, cmd *cobra.Command) {
-	cmdContext := WithContext(
-		ctx, FromContext(ctx, "cmd", cmd.Use))
-	cmd.SetContext(cmdContext)
-	ignoreZapOptions(cmd)
-	for _, c := range cmd.Commands() {
-		ignoreZapOptions(c)
-		c.SetContext(WithContext(
-			cmdContext, FromContext(cmdContext, "subcmd", c.Use)))
-	}
+// BindPFlags setups zap log options
+func BindPFlags(o *zap.Options, fs *pflag.FlagSet) {
+	// Set Development mode value
+	fs.Bool("zap-devel", o.Development,
+		"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). "+
+			"Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)")
+
+	fs.String("zap-encoder", "console", "Zap log encoding (one of 'json' or 'console')")
+
+	// Set the Log Level
+	fs.String("zap-log-level", "info",
+		"Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', "+
+			"or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
+
+	// Set the StrackTrace Level
+	fs.String("zap-stacktrace-level", "error",
+		"Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').")
+
+	// Set the time encoding
+	fs.String("zap-time-encoding", "epoch", "Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.")
+
+	_ = fs.MarkHidden("zap-devel")
+	_ = fs.MarkHidden("zap-encoder")
+	_ = fs.MarkHidden("zap-log-level")
+	_ = fs.MarkHidden("zap-stacktrace-level")
+	_ = fs.MarkHidden("zap-time-encoding")
 }
 
-// ignoreZapOptions sets up hidden flags for zap logger options.
-// It takes a *cobra.Command as input.
-// The function retrieves the flags from the command and defines hidden bool and string flags
-// for the zap logger options.
-// The zap logger options include: "zap-encoder", "zap-log-level", "zap-stacktrace-level",
-// and "zap-time-encoding". For each option, a corresponding flag is defined and marked as hidden.
-// This function does not return anything.
-func ignoreZapOptions(cmd *cobra.Command) {
-	flg := cmd.Flags()
-	options := []string{
-		"zap-encoder",
-		"zap-log-level",
-		"zap-stacktrace-level",
-		"zap-time-encoding",
-	}
-	flg.BoolP("zap-devel", "", false, "")
-	_ = flg.MarkHidden("zap-devel")
+// makes command lines from FlagSet values
+func makeCommandLine(fs *pflag.FlagSet) []string {
+	result := []string{""}
 
-	for _, o := range options {
-		flg.StringP(o, "", "", "")
-		_ = flg.MarkHidden(o)
-	}
+	fs.VisitAll(func(f *pflag.Flag) {
+		if f.Changed {
+			result = append(result, fmt.Sprintf(" --%s=%v", f.Name, f.Value))
+		}
+	})
+	return result
 }
