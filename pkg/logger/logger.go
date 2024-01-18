@@ -13,31 +13,36 @@ import (
 
 // InitLogger initializes the logger configuration.
 func InitLogger(rootCmd *cobra.Command) {
-	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
-		initLogger(cmd)
-	}
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		ctx := cmd.Context()
-		key := "subcmd"
-		if !cmd.HasParent() {
-			key = "cmd"
-			initLogger(rootCmd)
-		}
-		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, cmd.Use)))
-	}
-}
-
-func initLogger(rootCmd *cobra.Command) {
 	opts := zap.Options{
 		Development: false,
 	}
 	BindPFlags(&opts, rootCmd.PersistentFlags())
-	cmdline := makeCommandLine(rootCmd.PersistentFlags())
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		key := "cmd"
+		initLogger(&opts, cmd)
+		ctx := cmd.Context()
+		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, cmdkey(cmd))))
+	}
+}
+
+func initLogger(opts *zap.Options, cmd *cobra.Command) {
+	root := cmd
+	for root.HasParent() {
+		root = root.Parent()
+	}
+	cmdline := makeCommandLine(root.PersistentFlags())
 	flagSet := flag.NewFlagSet("standard", flag.ContinueOnError)
 	opts.BindFlags(flagSet)
 	_ = flagSet.Parse(cmdline)
-	logger := zap.New(zap.UseFlagOptions(&opts))
-	rootCmd.SetContext(WithContext(rootCmd.Context(), logger))
+	logger := zap.New(zap.UseFlagOptions(opts))
+	cmd.SetContext(WithContext(cmd.Context(), logger))
+}
+
+func cmdkey(cmd *cobra.Command) string {
+	if cmd.HasParent() {
+		return cmdkey(cmd.Parent()) + "." + cmd.Use
+	}
+	return cmd.Use
 }
 
 // FromContext returns a logr.Logger instance based on the provided context and key-value pairs.
