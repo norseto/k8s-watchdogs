@@ -20,7 +20,7 @@ func main() {
 		},
 	}
 	rootCmd.SetContext(ctx)
-	logger.InitLogger(rootCmd)
+	logger.InitCmdLogger(rootCmd)
 	rootCmd.AddCommand(
 		NewCleanEvictedCmd(),
 	)

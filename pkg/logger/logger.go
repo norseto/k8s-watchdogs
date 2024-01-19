@@ -7,40 +7,54 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"os"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-// InitLogger initializes the logger configuration.
-func InitLogger(rootCmd *cobra.Command) {
+// InitLogger initializes the logger.
+func InitLogger() logr.Logger {
+	opts := zap.Options{
+		Development: false,
+	}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	return zap.New(zap.UseFlagOptions(&opts))
+}
+
+// InitCmdLogger setup callback that initializes the logger configuration.
+func InitCmdLogger(rootCmd *cobra.Command) {
 	opts := zap.Options{
 		Development: false,
 	}
 	BindPFlags(&opts, rootCmd.PersistentFlags())
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		key := "cmd"
-		initLogger(&opts, cmd)
+		setupLogger(&opts, cmd)
 		ctx := cmd.Context()
-		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, cmdkey(cmd))))
+		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, makeCmdValue(cmd))))
 	}
 }
 
-func initLogger(opts *zap.Options, cmd *cobra.Command) {
+func setupLogger(opts *zap.Options, cmd *cobra.Command) {
 	root := cmd
 	for root.HasParent() {
 		root = root.Parent()
 	}
+	flag.Parse()
 	cmdline := makeCommandLine(root.PersistentFlags())
-	flagSet := flag.NewFlagSet("standard", flag.ContinueOnError)
+	flagSet := flag.NewFlagSet(cmdline[0], flag.ContinueOnError)
 	opts.BindFlags(flagSet)
-	_ = flagSet.Parse(cmdline)
+	_ = flagSet.Parse(cmdline[1:])
 	logger := zap.New(zap.UseFlagOptions(opts))
 	cmd.SetContext(WithContext(cmd.Context(), logger))
 }
 
-func cmdkey(cmd *cobra.Command) string {
+// makeCmdValue generates a key for a given cmd *cobra.Command object.
+func makeCmdValue(cmd *cobra.Command) string {
 	if cmd.HasParent() {
-		return cmdkey(cmd.Parent()) + "." + cmd.Use
+		return makeCmdValue(cmd.Parent()) + "." + cmd.Use
 	}
 	return cmd.Use
 }
@@ -103,13 +117,13 @@ func BindPFlags(o *zap.Options, fs *pflag.FlagSet) {
 	_ = fs.MarkHidden("zap-time-encoding")
 }
 
-// makes command lines from FlagSet values
+// makeCommandLine makes command lines from FlagSet values
 func makeCommandLine(fs *pflag.FlagSet) []string {
-	result := []string{""}
+	result := []string{os.Args[0]}
 
 	fs.VisitAll(func(f *pflag.Flag) {
 		if f.Changed {
-			result = append(result, fmt.Sprintf(" --%s=%v", f.Name, f.Value))
+			result = append(result, fmt.Sprintf("--%s=%v", f.Name, f.Value))
 		}
 	})
 	return result
