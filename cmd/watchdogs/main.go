@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	evcmd "github.com/norseto/k8s-watchdogs/internal/cmd/clean-evicted"
+	docmd "github.com/norseto/k8s-watchdogs/internal/cmd/delete-oldest"
 	rbcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ func main() {
 	rootCmd.AddCommand(
 		evcmd.New(),
 		rbcmd.New(),
+		docmd.New(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
