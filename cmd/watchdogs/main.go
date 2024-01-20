@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	evcmd "github.com/norseto/k8s-watchdogs/internal/cmd/clean-evicted"
+	rbcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -14,7 +16,7 @@ func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "watchdogs",
 		Short: "Kubernetes watchdogs utilities",
-		Long:  `Kubernetes utilities that can cleanup evicted pod, rebalance pod or restart deployment and so on`,
+		Long:  `Kubernetes utilities that can cleanup evicted pod, re-balance pod or restart deployment and so on`,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Usage()
 		},
@@ -22,7 +24,8 @@ func main() {
 	rootCmd.SetContext(ctx)
 	logger.InitCmdLogger(rootCmd)
 	rootCmd.AddCommand(
-		NewCleanEvictedCmd(),
+		evcmd.New(),
+		rbcmd.New(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

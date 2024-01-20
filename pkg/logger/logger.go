@@ -33,7 +33,13 @@ func InitCmdLogger(rootCmd *cobra.Command) {
 		key := "cmd"
 		setupLogger(&opts, cmd)
 		ctx := cmd.Context()
-		cmd.SetContext(WithContext(ctx, FromContext(ctx, key, makeCmdValue(cmd))))
+		logger := FromContext(ctx, key, makeCmdValue(cmd))
+		logger.V(1).Info("Starting..")
+		cmd.SetContext(WithContext(ctx, logger))
+	}
+	rootCmd.PersistentPostRun = func(cmd *cobra.Command, args []string) {
+		logger := FromContext(cmd.Context())
+		logger.V(1).Info("Completed.")
 	}
 }
 

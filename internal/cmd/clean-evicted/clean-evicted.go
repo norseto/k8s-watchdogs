@@ -1,4 +1,4 @@
-package main
+package clean_evicted
 
 import (
 	"context"
@@ -11,11 +11,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// NewCleanEvictedCmd returns a new Cobra command for cleaning evicted pods.
+// New returns a new Cobra command for cleaning evicted pods.
 // It creates and returns a command with the given Use and Short descriptions,
 // and sets the Run function to execute the cleanEvictedPods function.
-func NewCleanEvictedCmd() *cobra.Command {
-	// cleanEvictedCmd represents the clean-evicted command
+func New() *cobra.Command {
 	return &cobra.Command{
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
@@ -41,20 +40,20 @@ func cleanEvictedPods(ctx context.Context) {
 		panic(err)
 	}
 
-	var evicteds []v1.Pod
+	var evictedPods []v1.Pod
 	for _, pod := range pods.Items {
 		if k8score.IsEvicted(nil, pod) {
-			evicteds = append(evicteds, pod)
+			evictedPods = append(evictedPods, pod)
 		}
 	}
 
 	deleted := 0
-	for _, pod := range evicteds {
+	for _, pod := range evictedPods {
 		if err := k8score.DeletePod(ctx, client, pod); err != nil {
 			log.Error(err, "failed to delete pod", "pod", pod)
 		} else {
 			deleted = deleted + 1
 		}
 	}
-	log.Info("pods delete result", "deleted", deleted, "evicted", len(evicteds))
+	log.Info("pods delete result", "deleted", deleted, "evicted", len(evictedPods))
 }
