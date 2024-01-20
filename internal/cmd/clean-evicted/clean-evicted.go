@@ -19,25 +19,25 @@ func New() *cobra.Command {
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
 		Run: func(cmd *cobra.Command, args []string) {
-			cleanEvictedPods(cmd.Context())
+			_ = cleanEvictedPods(cmd.Context())
 		},
 	}
 }
 
-func cleanEvictedPods(ctx context.Context) {
+func cleanEvictedPods(ctx context.Context) error {
 	var client kubernetes.Interface
 	log := logger.FromContext(ctx)
 
 	client, err := k8sclient.NewClientset()
 	if err != nil {
 		log.Error(err, "failed to create client")
-		panic(err)
+		return err
 	}
 
 	pods, err := client.CoreV1().Pods(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Error(err, "failed to list pods")
-		panic(err)
+		return err
 	}
 
 	var evictedPods []v1.Pod
@@ -56,4 +56,6 @@ func cleanEvictedPods(ctx context.Context) {
 		}
 	}
 	log.Info("pods delete result", "deleted", deleted, "evicted", len(evictedPods))
+
+	return nil
 }

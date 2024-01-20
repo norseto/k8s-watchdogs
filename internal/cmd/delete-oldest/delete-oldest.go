@@ -42,8 +42,6 @@ func deleteOldestPods(ctx context.Context, namespace, prefix string, minPods int
 
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting multiple pod rs Rebalancer...")
-
 	client, err := k8sclient.NewClientset()
 	if err != nil {
 		log.Error(err, "failed to create client")

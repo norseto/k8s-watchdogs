@@ -26,45 +26,43 @@ func New() *cobra.Command {
 		Use:   "rebalance-pods",
 		Short: "Delete bias scheduled pods",
 		Run: func(cmd *cobra.Command, args []string) {
-			rebalancePods(cmd.Context())
+			_ = rebalancePods(cmd.Context())
 		},
 	}
 }
 
-func rebalancePods(ctx context.Context) {
+func rebalancePods(ctx context.Context) error {
 	var client kubernetes.Interface
 	var namespace = metav1.NamespaceAll
 
 	log := logger.FromContext(ctx)
 
-	log.Info("Starting multiple pod rs Rebalancer...")
-
 	client, err := k8sclient.NewClientset()
 	if err != nil {
 		log.Error(err, "failed to create client")
-		panic(err)
+		return err
 	}
 
 	nodes, err := k8score.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Error(err, "failed to list nodes")
-		panic(err)
+		return err
 	}
 
 	replicas, err := getTargetReplicaSets(ctx, client, namespace)
 	if err != nil {
 		log.Error(err, "failed to get replicaset")
-		panic(err)
+		return err
 	}
 	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
 	if err != nil {
 		log.Error(err, "failed to list pods")
-		panic(err)
+		return err
 	}
 
 	if len(rs) < 1 {
 		log.Info("No rs. Do nothing.")
-		return
+		return nil
 	}
 
 	rsstat := k8sapps.NewReplicaSetStatus(replicas)
@@ -86,7 +84,7 @@ func rebalancePods(ctx context.Context) {
 		}
 	}
 
-	log.Info("Done multiple pod rs Rebalancer", "rebalanced", rebalanced)
+	return nil
 }
 
 // getTargetReplicaSets gets target replica sets in a namespace.
