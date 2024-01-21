@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
@@ -28,7 +29,11 @@ func main() {
 
 	log.Info("Starting multiple pod rs Rebalancer...")
 
-	client, err := k8sclient.NewClientset()
+	opt := &k8sclient.Options{}
+	opt.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	client, err := k8sclient.NewClientset(opt)
 	if err != nil {
 		log.Error(err, "failed to create client")
 		panic(err)

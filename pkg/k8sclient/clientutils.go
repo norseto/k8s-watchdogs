@@ -25,8 +25,10 @@ SOFTWARE.
 package k8sclient
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -34,40 +36,70 @@ import (
 	"path/filepath"
 )
 
-// getConfigFilePath retrieves the kubeconfig file path.
-// It checks if the flag is parsed using flag.Parsed() and parses it if not.
-// If the HOME environment variable is set, it returns the kubeconfig path as filepath.Join(home, ".kube", "config").
-// If the KUBECONFIG environment variable is set, it returns the value of the variable.
-// If neither HOME nor KUBECONFIG are set, it returns an empty string.
-// Returns a pointer to the kubeconfig path string.
-func getConfigFilePath() *string {
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-
-	if home := os.Getenv("HOME"); home != "" {
-		return flag.String("kubeconfig", filepath.Join(home, ".kube", "config"),
-			"(optional) absolute path to the kubeconfig file")
-	} else if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
-		return &envVar
-	}
-	return flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+// Options represents the configuration options for a kubernetes client.
+type Options struct {
+	configFilePath string
 }
 
-// NewRESTConfig retrieves the REST configuration for communicating with a Kubernetes cluster.
-// It first tries to get the kubeconfig file path by calling getConfigFilePath function.
-// If the kubeconfig file path is provided, it builds the config using clientcmd.BuildConfigFromFlags function.
-// If the config is nil or an error occurs, it falls back to using rest.InClusterConfig to get the config.
-// Returns the config and an error, if any.
-func NewRESTConfig() (config *rest.Config, err error) {
-	kubeconfig := getConfigFilePath()
+// BindFlags adds the "kubeconfig" flag to the given FlagSet.
+// It binds the value of the flag to the configFilePath field of the Options struct.
+// The flag is used to specify the absolute path to the kubeconfig file.
+func (o *Options) BindFlags(fs *flag.FlagSet) {
+	fs.StringVar(&o.configFilePath, "kubeconfig", "", "absolute path to the kubeconfig file")
+}
 
-	if !flag.Parsed() {
-		flag.Parse()
+// BindPFlags adds the "kubeconfig" flag to the given FlagSet.
+// It binds the value of the flag to the configFilePath field of the Options struct.
+// The flag is used to specify the absolute path to the kubeconfig file.
+func (o *Options) BindPFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.configFilePath, "kubeconfig", "", "absolute path to the kubeconfig file")
+	_ = fs.MarkHidden("kubeconfig")
+}
+
+// GetConfigFilePath retrieves the kubeconfig file path.
+func (o *Options) GetConfigFilePath() string {
+	if o.configFilePath != "" {
+		return o.configFilePath
+	}
+	if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
+		return envVar
+	}
+	if home := os.Getenv("HOME"); home != "" {
+		path := filepath.Join(home, ".kube", "config")
+		return path
+	}
+	return ""
+}
+
+type contextKey struct{}
+
+// FromContext retrieves the *Options value from the given context.
+// If the value exists and is of type *Options, it is returned.
+// Otherwise, a new empty *Options is returned.
+func FromContext(ctx context.Context) *Options {
+	if v, ok := ctx.Value(contextKey{}).(*Options); ok {
+		return v
 	}
 
-	if *kubeconfig != "" {
-		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	return &Options{}
+}
+
+// WithContext sets the value of the options in the given context.
+// It returns a new context with the updated value.
+func WithContext(ctx context.Context, opts *Options) context.Context {
+	return context.WithValue(ctx, contextKey{}, opts)
+}
+
+// NewRESTConfig creates a new Kubernetes REST config based on the provided options.
+// It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
+// If the `opts` contains a non-empty kubeconfig file path, it uses `clientcmd.BuildConfigFromFlags` to build the config.
+// If the config is not specified or there is an error building it, it falls back to using `rest.InClusterConfig`.
+// The function returns the created REST config and an error if there was a failure.
+func NewRESTConfig(opts *Options) (config *rest.Config, err error) {
+	kubeconfig := opts.GetConfigFilePath()
+
+	if kubeconfig != "" {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 
 	if config == nil || err != nil {
@@ -76,35 +108,33 @@ func NewRESTConfig() (config *rest.Config, err error) {
 	return
 }
 
-// NewClientset creates a new instance of *kubernetes.Clientset.
-// It calls the function NewClientsetWithRestConfig to get the *kubernetes.Clientset and error.
-// Returns the *kubernetes.Clientset and error from NewClientsetWithRestConfig.
-func NewClientset() (*kubernetes.Clientset, error) {
-	clnt, _, err := NewClientsetWithRestConfig()
+// NewClientset creates a new Kubernetes clientset.
+// It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
+// It returns a `*kubernetes.Clientset` and an `error` if there was a failure.
+// It utilizes the `NewClientsetWithRestConfig` function to create the clientset.
+// If there was an error creating the clientset, an error is returned along with `nil` for the clientset.
+func NewClientset(opts *Options) (*kubernetes.Clientset, error) {
+	clnt, _, err := NewClientsetWithRestConfig(opts)
 
 	return clnt, err
 }
 
-// NewClientsetWithRestConfig initializes a Kubernetes clientset and REST config.
-// It first calls NewRESTConfig to retrieve the REST config.
-// If an error occurs during the creation of the config, nil values and the error are returned.
-// Otherwise, it creates a clientset using the config.
-// If an error occurs during the creation of the clientset, nil values and the error are returned.
-// Otherwise, it returns the clientset, the config, and any error that occurred during config creation.
-// Example usage:
-//
-//	clnt, config, err := NewClientsetWithRestConfig()
-func NewClientsetWithRestConfig() (*kubernetes.Clientset, *rest.Config, error) {
-	config, err := NewRESTConfig()
+// NewClientsetWithRestConfig creates a new Kubernetes clientset and REST config.
+// It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
+// It returns a `*kubernetes.Clientset`, `*rest.Config`, and an `error` if there was a failure.
+// It utilizes the `NewRESTConfig` function to create the REST config, then uses the REST config to create the clientset.
+// If there was an error creating the REST config or the clientset, an error is returned along with `nil` for the clientset and config.
+func NewClientsetWithRestConfig(opts *Options) (*kubernetes.Clientset, *rest.Config, error) {
+	config, err := NewRESTConfig(opts)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create a REST config: %w", err)
 	}
 
-	clnt, err := kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create a config: %w", err)
 	}
 
-	return clnt, config, err
+	return client, config, err
 }

@@ -66,7 +66,7 @@ func deleteOldestPods(ctx context.Context, namespace, prefix string, minPods int
 
 	log := logger.FromContext(ctx)
 
-	client, err := k8sclient.NewClientset()
+	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
 	if err != nil {
 		log.Error(err, "failed to create client")
 		panic(err)

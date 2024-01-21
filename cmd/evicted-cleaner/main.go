@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -19,7 +20,11 @@ func main() {
 	ctx := logger.WithContext(context.Background(), logger.InitLogger())
 	log := logger.FromContext(ctx, "cmd", "evicted-cleaner")
 
-	client, err := k8sclient.NewClientset()
+	opt := &k8sclient.Options{}
+	opt.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	client, err := k8sclient.NewClientset(opt)
 	if err != nil {
 		log.Error(err, "failed to create client")
 		panic(err)

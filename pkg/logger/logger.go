@@ -72,7 +72,6 @@ func setupLogger(opts *zap.Options, cmd *cobra.Command) {
 	for root.HasParent() {
 		root = root.Parent()
 	}
-	flag.Parse()
 	cmdline := makeCommandLine(root.PersistentFlags())
 	flagSet := flag.NewFlagSet(cmdline[0], flag.ContinueOnError)
 	opts.BindFlags(flagSet)

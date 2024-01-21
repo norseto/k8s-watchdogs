@@ -61,7 +61,7 @@ func rebalancePods(ctx context.Context) error {
 
 	log := logger.FromContext(ctx)
 
-	client, err := k8sclient.NewClientset()
+	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
 	if err != nil {
 		log.Error(err, "failed to create client")
 		return err

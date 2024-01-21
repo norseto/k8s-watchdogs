@@ -54,15 +54,18 @@ func TestGetKubeconfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			opts := &Options{}
 			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+			opts.BindFlags(flag.CommandLine)
+			flag.Parse()
 			tt.setup()
 			defer func() {
 				tt.teardown()
 				flag.CommandLine = backup
 			}()
-			result := getConfigFilePath()
-			if *result != tt.expected {
-				t.Errorf("expected %s, got %s", tt.expected, *result)
+			result := opts.GetConfigFilePath()
+			if result != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result)
 			}
 		})
 	}
