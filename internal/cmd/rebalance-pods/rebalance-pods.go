@@ -97,7 +97,7 @@ func rebalancePods(ctx context.Context) error {
 			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
-		result, err := rebalancer.NewRebalancer(r).Rebalance(ctx, client)
+		result, err := rebalancer.NewRebalancer(ctx, r).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {

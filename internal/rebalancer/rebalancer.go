@@ -28,6 +28,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -82,13 +83,19 @@ func (r *Rebalancer) currentReplicas() int32 {
 // If "Pod" is nil, it returns the original list of Nodes.
 // It calls the k8sutils.FilterScheduleable function to filter the list of Nodes based on the Pod.Spec.
 // It assigns the filtered list to the current.Nodes.
-func (r *Rebalancer) filterSchedulables() {
+func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 	if r.current == nil || len(r.current.PodStatus) < 1 {
 		return
 	}
 	firstPod := r.current.PodStatus[0].Pod
 	if firstPod == nil {
 		return
+	}
+
+	res, err := k8score.GetPodRequestResources(*firstPod)
+	if err == nil {
+		logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
+			"cpu", res.Cpu(), "mem", res.Memory())
 	}
 
 	nodes := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
@@ -98,9 +105,9 @@ func (r *Rebalancer) filterSchedulables() {
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current
 // replica state and a default maxRebalanceRate of 0.25.
 // The Rebalancer struct contains methods for rebalancing pods across Nodes in a Kubernetes cluster.
-func NewRebalancer(current *ReplicaState) *Rebalancer {
+func NewRebalancer(ctx context.Context, current *ReplicaState) *Rebalancer {
 	ret := &Rebalancer{current: current, maxRebalanceRate: .25}
-	ret.filterSchedulables()
+	ret.filterSchedulables(ctx)
 	return ret
 }
 
@@ -128,6 +135,13 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 
 	for i := 0; i < maxDel; i++ {
 		node, num := r.getNodeWithMaxPods()
+		for _, n := range r.current.Nodes {
+			capacity, err := k8score.GetNodeResourceCapacity(n)
+			if err != nil {
+				return deleted > 0, fmt.Errorf("failed to get Node capacity: %v", err)
+			}
+			logger.FromContext(ctx).V(1).Info("node capacity", "node", n.Name, "capacity", capacity)
+		}
 		if num < 1 {
 			return deleted > 0, nil
 		}

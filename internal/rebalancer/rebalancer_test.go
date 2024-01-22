@@ -103,7 +103,7 @@ func TestFilterSchedulables(t *testing.T) {
 	}
 
 	// Call the filterSchedulables function
-	rebalancer.filterSchedulables()
+	rebalancer.filterSchedulables(context.TODO())
 
 	// Check the filtered Nodes
 	expected := []*corev1.Node{node("node-1")}
