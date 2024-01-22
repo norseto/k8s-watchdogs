@@ -92,11 +92,9 @@ func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 		return
 	}
 
-	res, err := k8score.GetPodRequestResources(*firstPod)
-	if err == nil {
-		logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
-			"cpu", res.Cpu(), "mem", res.Memory())
-	}
+	res := k8score.GetPodRequestResources(*firstPod)
+	logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
+		"cpu", res.Cpu(), "mem", res.Memory())
 
 	nodes := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
 	r.current.Nodes = nodes

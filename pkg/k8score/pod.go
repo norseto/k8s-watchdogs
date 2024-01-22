@@ -66,7 +66,7 @@ func IsPodReadyRunning(po corev1.Pod) bool {
 //	    fmt.Printf("CPU: %v\n", res[corev1.ResourceCPU])
 //	    fmt.Printf("Memory: %v\n", res[corev1.ResourceMemory])
 //	}
-func GetPodRequestResources(pod corev1.Pod) (corev1.ResourceList, error) {
+func GetPodRequestResources(pod corev1.Pod) corev1.ResourceList {
 	maxCpu := *resource.NewQuantity(0, resource.DecimalSI)
 	maxMem := *resource.NewQuantity(0, resource.DecimalSI)
 	for _, c := range pod.Spec.Containers {
@@ -80,14 +80,12 @@ func GetPodRequestResources(pod corev1.Pod) (corev1.ResourceList, error) {
 			maxMem = c.Resources.Requests.Memory().DeepCopy()
 		}
 	}
-	if !maxCpu.IsZero() && !maxMem.IsZero() {
-		ret := corev1.ResourceList{
-			corev1.ResourceCPU:    maxCpu,
-			corev1.ResourceMemory: maxMem,
-		}
-		return ret, nil
+
+	ret := corev1.ResourceList{
+		corev1.ResourceCPU:    maxCpu,
+		corev1.ResourceMemory: maxMem,
 	}
-	return nil, fmt.Errorf("failed to get pod request resources")
+	return ret
 }
 
 // DeletePod deletes a pod using the Kubernetes client.
