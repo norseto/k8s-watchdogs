@@ -31,7 +31,7 @@ import (
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
 )
 
@@ -40,7 +40,7 @@ import (
 // and an array of Pod states.
 type ReplicaState struct {
 	Replicaset *appsv1.ReplicaSet
-	Nodes      []*v1.Node
+	Nodes      []*corev1.Node
 	PodStatus  []*PodStatus
 }
 
@@ -48,8 +48,8 @@ type ReplicaState struct {
 // It contains a pointer to a Pod object, a pointer to a Node object,
 // and a boolean flag indicating whether the Pod has been deleted or not.
 type PodStatus struct {
-	Pod     *v1.Pod
-	Node    *v1.Node
+	Pod     *corev1.Pod
+	Node    *corev1.Node
 	deleted bool
 }
 
@@ -92,12 +92,29 @@ func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 		return
 	}
 
-	res := k8score.GetPodRequestResources(*firstPod)
+	res := k8score.GetPodRequestResources(firstPod.Spec)
 	logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
 		"cpu", res.Cpu(), "mem", res.Memory())
 
 	nodes := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
-	r.current.Nodes = nodes
+	r.current.Nodes = mergeNodes(nodes, r.current.PodStatus)
+}
+
+func mergeNodes(nodes []*corev1.Node, podState []*PodStatus) []*corev1.Node {
+	nodeset := make(map[string]*corev1.Node)
+	for _, node := range nodes {
+		nodeset[node.Name] = node
+	}
+	for _, pod := range podState {
+		if pod.Node != nil {
+			nodeset[pod.Node.Name] = pod.Node
+		}
+	}
+	result := make([]*corev1.Node, 0, len(nodeset))
+	for _, node := range nodeset {
+		result = append(result, node)
+	}
+	return result
 }
 
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current

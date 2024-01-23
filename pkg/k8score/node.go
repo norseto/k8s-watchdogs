@@ -86,7 +86,14 @@ func CanSchedule(node *corev1.Node, podSpec *corev1.PodSpec) bool {
 // It returns a new slice of node pointers that can schedule the pod spec.
 func FilterScheduleable(nodes []*corev1.Node, podSpec *corev1.PodSpec) []*corev1.Node {
 	var list []*corev1.Node
+	request := GetPodRequestResources(*podSpec)
+
 	for _, node := range nodes {
+		capacity, err := GetNodeResourceCapacity(node)
+		if err != nil || capacity.Cpu().Cmp(*request.Cpu()) < 0 ||
+			capacity.Memory().Cmp(*request.Memory()) < 0 {
+			continue
+		}
 		if CanSchedule(node, podSpec) {
 			list = append(list, node)
 		}

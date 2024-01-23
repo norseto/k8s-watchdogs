@@ -51,25 +51,15 @@ func IsPodReadyRunning(po corev1.Pod) bool {
 	return true
 }
 
-// GetPodRequestResources retrieves the maximum CPU and memory resource requests
-// from the given Pod's container spec. It returns a corev1.ResourceList with keys
-// corev1.ResourceCPU and corev1.ResourceMemory, respectively, and their respective
-// values representing the maximum CPU and memory resources requested by the containers
-// in the Pod. If the resource requests are not specified for any container, it skips
-// that container. If both maximum CPU and memory resources are zero, it returns
-// an error with the message "failed to get pod request resources".
-//
-// Example usage:
-//
-//	res, err := GetPodRequestResources(pod)
-//	if err == nil {
-//	    fmt.Printf("CPU: %v\n", res[corev1.ResourceCPU])
-//	    fmt.Printf("Memory: %v\n", res[corev1.ResourceMemory])
-//	}
-func GetPodRequestResources(pod corev1.Pod) corev1.ResourceList {
+// GetPodRequestResources calculates the maximum CPU and memory resources requested by the containers in a given PodSpec.
+// It iterates over each container in the PodSpec and checks if it has requested resources.
+// If so, it compares the requested CPU and memory
+// with the previously calculated maximums, and updates them if necessary.
+// Finally, it returns the maximum CPU and memory resources as a corev1.ResourceList.
+func GetPodRequestResources(podSpec corev1.PodSpec) corev1.ResourceList {
 	maxCpu := *resource.NewQuantity(0, resource.DecimalSI)
 	maxMem := *resource.NewQuantity(0, resource.DecimalSI)
-	for _, c := range pod.Spec.Containers {
+	for _, c := range podSpec.Containers {
 		if c.Resources.Requests == nil {
 			continue
 		}
