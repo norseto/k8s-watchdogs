@@ -2,6 +2,9 @@ package k8score
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -150,4 +153,66 @@ func TestFilterScheduleable(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetNodeResourceCapacity(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-node",
+		},
+		Status: corev1.NodeStatus{
+			Allocatable: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("4"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
+			},
+		},
+	}
+
+	t.Run("Positive Test Case", func(t *testing.T) {
+		expectedResult := corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("4"),
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
+		}
+
+		result, err := GetNodeResourceCapacity(node)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(result, expectedResult) {
+			t.Errorf("Expected result: %v, but got: %v", expectedResult, result)
+		}
+	})
+
+	t.Run("Negative Test Case - No CPU Allocatable", func(t *testing.T) {
+		node.Status.Allocatable = corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("8Gi"),
+		}
+
+		_, err := GetNodeResourceCapacity(node)
+		if err == nil {
+			t.Error("Expected error, but got nil")
+		}
+
+		expectedErrorMessage := fmt.Sprintf("node %s has no allocatable CPU", node.Name)
+		if err.Error() != expectedErrorMessage {
+			t.Errorf("Expected error message: %s, but got: %s", expectedErrorMessage, err.Error())
+		}
+	})
+
+	t.Run("Negative Test Case - No Memory Allocatable", func(t *testing.T) {
+		node.Status.Allocatable = corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("4"),
+		}
+
+		_, err := GetNodeResourceCapacity(node)
+		if err == nil {
+			t.Error("Expected error, but got nil")
+		}
+
+		expectedErrorMessage := fmt.Sprintf("node %s has no allocatable memory", node.Name)
+		if err.Error() != expectedErrorMessage {
+			t.Errorf("Expected error message: %s, but got: %s", expectedErrorMessage, err.Error())
+		}
+	})
 }

@@ -3,7 +3,8 @@ package k8score
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testclient "k8s.io/client-go/kubernetes/fake"
 	"testing"
@@ -12,12 +13,12 @@ import (
 func TestIsPodReadyRunning(t *testing.T) {
 	tests := []struct {
 		description string
-		pod         v1.Pod
+		pod         corev1.Pod
 		expected    bool
 	}{
-		{"Pod ready and running", v1.Pod{Status: v1.PodStatus{Phase: v1.PodRunning, ContainerStatuses: []v1.ContainerStatus{{Ready: true}}}}, true},
-		{"Pod not running", v1.Pod{Status: v1.PodStatus{Phase: v1.PodPending}}, false},
-		{"Pod running but not ready", v1.Pod{Status: v1.PodStatus{Phase: v1.PodRunning, ContainerStatuses: []v1.ContainerStatus{{Ready: false}}}}, false},
+		{"Pod ready and running", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Ready: true}}}}, true},
+		{"Pod not running", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodPending}}, false},
+		{"Pod running but not ready", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Ready: false}}}}, false},
 	}
 
 	for _, test := range tests {
@@ -41,7 +42,7 @@ func TestDeletePod(t *testing.T) {
 	client := testclient.NewSimpleClientset()
 
 	// Create a test pod.
-	pod := &v1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      podName,
@@ -65,18 +66,18 @@ func TestDeletePod(t *testing.T) {
 }
 
 func TestToleratesTaint(t *testing.T) {
-	myTaint := v1.Taint{
+	myTaint := corev1.Taint{
 		Key:   "myTaint",
 		Value: "myValue",
 	}
 
 	tests := []struct {
 		description string
-		podSpec     *v1.PodSpec
+		podSpec     *corev1.PodSpec
 		expected    bool
 	}{
-		{"No tolerance for taint", &v1.PodSpec{}, false},
-		{"Toleration", &v1.PodSpec{Tolerations: []v1.Toleration{{Key: "myTaint", Operator: "Equal", Value: "myValue", Effect: ""}}}, true},
+		{"No tolerance for taint", &corev1.PodSpec{}, false},
+		{"Toleration", &corev1.PodSpec{Tolerations: []corev1.Toleration{{Key: "myTaint", Operator: "Equal", Value: "myValue", Effect: ""}}}, true},
 	}
 
 	for _, test := range tests {
@@ -88,27 +89,26 @@ func TestToleratesTaint(t *testing.T) {
 	}
 }
 
-//
 func TestIsEvicted(t *testing.T) {
 	tests := []struct {
 		name     string
-		pod      v1.Pod
+		pod      corev1.Pod
 		expected bool
 	}{
 		{
 			name: "PodNotFailed",
-			pod: v1.Pod{
-				Status: v1.PodStatus{
-					Phase: v1.PodRunning,
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
 				},
 			},
 			expected: false,
 		},
 		{
 			name: "PodFailedButNotEvicted",
-			pod: v1.Pod{
-				Status: v1.PodStatus{
-					Phase:  v1.PodFailed,
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:  corev1.PodFailed,
 					Reason: "NotEvicted",
 				},
 			},
@@ -116,9 +116,9 @@ func TestIsEvicted(t *testing.T) {
 		},
 		{
 			name: "PodFailedAndEvicted",
-			pod: v1.Pod{
-				Status: v1.PodStatus{
-					Phase:  v1.PodFailed,
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:  corev1.PodFailed,
 					Reason: reasonEvicted,
 				},
 			},
@@ -133,5 +133,45 @@ func TestIsEvicted(t *testing.T) {
 				t.Errorf("IsEvicted() = %v, expected %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetPodRequestResources(t *testing.T) {
+	pod := corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewQuantity(2000, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(4096, resource.DecimalSI),
+						},
+					},
+				},
+				{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    *resource.NewQuantity(1000, resource.DecimalSI),
+							corev1.ResourceMemory: *resource.NewQuantity(2048, resource.DecimalSI),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expected := corev1.ResourceList{
+		corev1.ResourceCPU:    *resource.NewQuantity(2000, resource.DecimalSI),
+		corev1.ResourceMemory: *resource.NewQuantity(4096, resource.DecimalSI),
+	}
+
+	result := GetPodRequestResources(pod)
+
+	if result.Cpu().Cmp(*expected.Cpu()) != 0 {
+		t.Errorf("CPU resource mismatch, expected: %v, got: %v", expected.Cpu(), result.Cpu())
+	}
+
+	if result.Memory().Cmp(*expected.Memory()) != 0 {
+		t.Errorf("Memory resource mismatch, expected: %v, got: %v", expected.Memory(), result.Memory())
 	}
 }
