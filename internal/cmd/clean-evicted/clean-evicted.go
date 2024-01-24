@@ -26,6 +26,7 @@ package clean_evicted
 
 import (
 	"context"
+	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -39,16 +40,19 @@ import (
 // It creates and returns a command with the given Use and Short descriptions,
 // and sets the Run function to execute the cleanEvictedPods function.
 func New() *cobra.Command {
-	return &cobra.Command{
+	opts := &options.Options{}
+	cmd := &cobra.Command{
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
 		Run: func(cmd *cobra.Command, args []string) {
-			_ = cleanEvictedPods(cmd.Context())
+			_ = cleanEvictedPods(cmd.Context(), opts.Namespace())
 		},
 	}
+	opts.BindCommonFlags(cmd)
+	return cmd
 }
 
-func cleanEvictedPods(ctx context.Context) error {
+func cleanEvictedPods(ctx context.Context, namespace string) error {
 	var client kubernetes.Interface
 	log := logger.FromContext(ctx)
 
@@ -58,7 +62,7 @@ func cleanEvictedPods(ctx context.Context) error {
 		return err
 	}
 
-	pods, err := client.CoreV1().Pods(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Error(err, "failed to list pods")
 		return err

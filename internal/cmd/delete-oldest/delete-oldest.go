@@ -26,6 +26,7 @@ package delete_oldest
 
 import (
 	"context"
+	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -39,9 +40,10 @@ import (
 
 // New returns a new Cobra command for re-balancing pods.
 func New() *cobra.Command {
-	var namespace, prefix string
+	var prefix string
 	var minPods int
 
+	opts := &options.Options{}
 	cmd := &cobra.Command{
 		Use:   "delete-oldest",
 		Short: "Delete oldest pod(s)",
@@ -50,11 +52,12 @@ func New() *cobra.Command {
 				_ = cmd.Usage()
 				return
 			}
-			deleteOldestPods(cmd.Context(), namespace, prefix, minPods)
+			deleteOldestPods(cmd.Context(), opts.Namespace(), prefix, minPods)
 		},
 	}
+	opts.BindCommonFlags(cmd)
+
 	flg := cmd.Flags()
-	flg.StringVarP(&namespace, "namespace", "n", "default", "Namespace of target pod.")
 	flg.StringVarP(&prefix, "prefix", "p", "", "Pod name prefix to delete.")
 	flg.IntVarP(&minPods, "minPods", "m", 3, "Min pods required.")
 

@@ -30,6 +30,7 @@ package rebalance_pods
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
@@ -46,18 +47,20 @@ import (
 
 // New returns a new Cobra command for re-balancing pods.
 func New() *cobra.Command {
-	return &cobra.Command{
+	opts := &options.Options{}
+	cmd := &cobra.Command{
 		Use:   "rebalance-pods",
 		Short: "Delete bias scheduled pods",
 		Run: func(cmd *cobra.Command, args []string) {
-			_ = rebalancePods(cmd.Context())
+			_ = rebalancePods(cmd.Context(), opts.Namespace())
 		},
 	}
+	opts.BindCommonFlags(cmd)
+	return cmd
 }
 
-func rebalancePods(ctx context.Context) error {
+func rebalancePods(ctx context.Context, namespace string) error {
 	var client kubernetes.Interface
-	var namespace = metav1.NamespaceAll
 
 	log := logger.FromContext(ctx)
 
