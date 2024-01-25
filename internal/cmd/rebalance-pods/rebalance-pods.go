@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package rebalance_pods
+package rebalancepods
 
 // Pod Rebalancer
 // Deletes pod scheduled biased node.
@@ -30,6 +30,7 @@ package rebalance_pods
 import (
 	"context"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
@@ -45,8 +46,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// New returns a new Cobra command for re-balancing pods.
-func New() *cobra.Command {
+// NewCommand returns a new Cobra command for re-balancing pods.
+func NewCommand() *cobra.Command {
 	opts := &options.Options{}
 	cmd := &cobra.Command{
 		Use:   "rebalance-pods",
@@ -61,9 +62,7 @@ func New() *cobra.Command {
 
 func rebalancePods(ctx context.Context, namespace string) error {
 	var client kubernetes.Interface
-
 	log := logger.FromContext(ctx)
-
 	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
 	if err != nil {
 		log.Error(err, "failed to create client")
@@ -92,11 +91,11 @@ func rebalancePods(ctx context.Context, namespace string) error {
 		return nil
 	}
 
-	rsstat := k8sapps.NewReplicaSetStatus(replicas)
-	rebalanced := 0
+	rsStat := k8sapps.NewReplicaSetStatus(replicas)
+	numRebalanced := 0
 	for _, r := range rs {
 		name := r.Replicaset.Name
-		if rsstat.IsRollingUpdating(ctx, r.Replicaset) {
+		if rsStat.IsRollingUpdating(ctx, r.Replicaset) {
 			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
@@ -105,7 +104,7 @@ func rebalancePods(ctx context.Context, namespace string) error {
 			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {
 			log.Info("Rebalanced", "rs", name)
-			rebalanced++
+			numRebalanced++
 		} else {
 			log.V(1).Info("No need to rebalance", "rs", name)
 		}
@@ -131,7 +130,7 @@ func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns s
 func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns string, nodes []*v1.Node, replicas []*appsv1.ReplicaSet) ([]*rebalancer.ReplicaState, error) {
 	nodeMap := make(map[string]*v1.Node)
 	var stats []*rebalancer.ReplicaState
-	rsmap := make(map[types.UID]*rebalancer.ReplicaState)
+	rsMap := make(map[types.UID]*rebalancer.ReplicaState)
 
 	for _, n := range nodes {
 		nodeMap[n.Name] = n
@@ -150,14 +149,15 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 				continue
 			}
 			node := nodeMap[po.Spec.NodeName]
-			postat := rebalancer.PodStatus{Pod: po.DeepCopy(), Node: node}
-			rstat, ok := rsmap[rs.ObjectMeta.UID]
+			poStat := rebalancer.PodStatus{Pod: po.DeepCopy(), Node: node}
+			rStat, ok := rsMap[rs.ObjectMeta.UID]
 			if !ok {
-				rstat = &rebalancer.ReplicaState{Replicaset: rs, Nodes: nodes}
-				rsmap[rs.ObjectMeta.UID] = rstat
-				stats = append(stats, rstat)
+				rStat = &rebalancer.ReplicaState{Replicaset: rs, Nodes: nodes}
+				rsMap[rs.ObjectMeta.UID] = rStat
+				stats = append(stats, rStat)
 			}
-			rstat.PodStatus = append(rstat.PodStatus, &postat)
+
+			rStat.PodStatus = append(rStat.PodStatus, &poStat)
 			break
 		}
 	}

@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package restart_deploy
+package restartdeploy
 
 import (
 	"context"
@@ -36,8 +36,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// New returns a new Cobra command for re-balancing pods.
-func New() *cobra.Command {
+// NewCommand returns a new Cobra command for re-balancing pods.
+func NewCommand() *cobra.Command {
 	opts := &options.Options{}
 	cmd := &cobra.Command{
 		Use:   "restart-deploy",

@@ -11,7 +11,7 @@ type Options struct {
 }
 
 // BindCommonFlags binds the "namespace" flag to the "namespace" field in the Options struct.
-// This allows the value provided for the flag to be assigned to the Options struct's namespace
+// This allows the value provided for the flag to be assigned to the Options struct's namespace.
 func (o *Options) BindCommonFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.namespace, "namespace", metav1.NamespaceAll, "namespace")
 }

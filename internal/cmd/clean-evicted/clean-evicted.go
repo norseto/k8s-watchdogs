@@ -22,10 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package clean_evicted
+package cleanevicted
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
@@ -33,29 +35,27 @@ import (
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
-// New returns a new Cobra command for cleaning evicted pods.
+// NewCommand returns a new Cobra command for cleaning evicted pods.
 // It creates and returns a command with the given Use and Short descriptions,
 // and sets the Run function to execute the cleanEvictedPods function.
-func New() *cobra.Command {
+func NewCommand() *cobra.Command {
 	opts := &options.Options{}
 	cmd := &cobra.Command{
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = cleanEvictedPods(cmd.Context(), opts.Namespace())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cleanEvictedPods(cmd.Context(), opts.Namespace())
 		},
 	}
 	opts.BindCommonFlags(cmd)
 	return cmd
 }
 
+// cleanEvictedPods cleans up evicted pods in the specified namespace.
 func cleanEvictedPods(ctx context.Context, namespace string) error {
-	var client kubernetes.Interface
 	log := logger.FromContext(ctx)
-
 	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
 	if err != nil {
 		log.Error(err, "failed to create client")
@@ -78,12 +78,12 @@ func cleanEvictedPods(ctx context.Context, namespace string) error {
 	deleted := 0
 	for _, pod := range evictedPods {
 		if err := k8score.DeletePod(ctx, client, pod); err != nil {
-			log.Error(err, "failed to delete pod", "pod", pod)
+			log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		} else {
-			deleted = deleted + 1
+			deleted++
 		}
 	}
-	log.Info("pods delete result", "deleted", deleted, "evicted", len(evictedPods))
 
+	log.Info("pods delete result", "deleted", deleted, "evicted", len(evictedPods))
 	return nil
 }

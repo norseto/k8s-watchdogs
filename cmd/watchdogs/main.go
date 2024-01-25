@@ -26,15 +26,16 @@ package main
 
 import (
 	"context"
-	evcmd "github.com/norseto/k8s-watchdogs/internal/cmd/clean-evicted"
+	"os"
+
+	cecmd "github.com/norseto/k8s-watchdogs/internal/cmd/clean-evicted"
 	docmd "github.com/norseto/k8s-watchdogs/internal/cmd/delete-oldest"
-	rbcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
+	rpcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	rdcmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-deploy"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 func main() {
@@ -53,10 +54,10 @@ func main() {
 	logger.InitCmdLogger(rootCmd)
 	opts.BindPFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(
-		evcmd.New(),
-		rbcmd.New(),
-		docmd.New(),
-		rdcmd.New(),
+		cecmd.NewCommand(),
+		rpcmd.NewCommand(),
+		docmd.NewCommand(),
+		rdcmd.NewCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
