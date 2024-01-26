@@ -42,12 +42,18 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restart-deploy",
 		Short: "Restart deployment",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
 				_ = cmd.Usage()
-				return
+				return nil
 			}
-			_ = restartDeployment(cmd.Context(), opts.Namespace(), args)
+			ctx := cmd.Context()
+			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			if err != nil {
+				logger.FromContext(ctx).Error(err, "failed to create client")
+				return err
+			}
+			return restartDeployment(cmd.Context(), client, opts.Namespace(), args)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -56,16 +62,8 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func restartDeployment(ctx context.Context, namespace string, targets []string) error {
-	var client kubernetes.Interface
-
+func restartDeployment(ctx context.Context, client kubernetes.Interface, namespace string, targets []string) error {
 	log := logger.FromContext(ctx)
-
-	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
-	if err != nil {
-		log.Error(err, "failed to create client")
-		return err
-	}
 
 	for _, target := range targets {
 		dep, err := client.AppsV1().Deployments(namespace).Get(ctx, target, metav1.GetOptions{})

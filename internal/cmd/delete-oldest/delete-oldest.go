@@ -47,12 +47,19 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete-oldest",
 		Short: "Delete oldest pod(s)",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if prefix == "" || minPods < 1 {
 				_ = cmd.Usage()
-				return
+				return nil
 			}
-			deleteOldestPods(cmd.Context(), opts.Namespace(), prefix, minPods)
+			
+			ctx := cmd.Context()
+			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			if err != nil {
+				logger.FromContext(ctx).Error(err, "failed to create client")
+				return err
+			}
+			return deleteOldestPods(cmd.Context(), client, opts.Namespace(), prefix, minPods)
 		},
 	}
 	opts.BindCommonFlags(cmd)
@@ -64,34 +71,29 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func deleteOldestPods(ctx context.Context, namespace, prefix string, minPods int) {
-	var client kubernetes.Interface
+func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespace, prefix string, minPods int) error {
 
 	log := logger.FromContext(ctx)
-
-	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
-	if err != nil {
-		log.Error(err, "failed to create client")
-		panic(err)
-	}
 
 	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Error(err, "failed to list pods")
-		return
+		return err
 	}
 
 	picked, err := pickOldest(prefix, minPods, pods.Items)
 	if err != nil {
 		log.Error(err, "failed to pick oldest pod")
-		return
+		return err
 	}
 	if err := k8score.DeletePod(ctx, client, *picked); err != nil {
 		log.Error(err, "failed to delete pod")
-		return
+		return err
 	}
 	log.Info("removed", "pod",
 		picked.ObjectMeta.Namespace+"/"+picked.ObjectMeta.Name)
+
+	return nil
 }
 
 func pickOldest(prefix string, min int, pods []corev1.Pod) (*corev1.Pod, error) {

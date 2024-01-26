@@ -52,23 +52,22 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rebalance-pods",
 		Short: "Delete bias scheduled pods",
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = rebalancePods(cmd.Context(), opts.Namespace())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			if err != nil {
+				logger.FromContext(ctx).Error(err, "failed to create client")
+				return err
+			}
+			return rebalancePods(cmd.Context(), client, opts.Namespace())
 		},
 	}
 	opts.BindCommonFlags(cmd)
 	return cmd
 }
 
-func rebalancePods(ctx context.Context, namespace string) error {
-	var client kubernetes.Interface
+func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	log := logger.FromContext(ctx)
-	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
-	if err != nil {
-		log.Error(err, "failed to create client")
-		return err
-	}
-
 	nodes, err := k8score.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Error(err, "failed to list nodes")

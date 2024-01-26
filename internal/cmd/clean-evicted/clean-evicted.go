@@ -27,6 +27,7 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
@@ -46,7 +47,13 @@ func NewCommand() *cobra.Command {
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cleanEvictedPods(cmd.Context(), opts.Namespace())
+			ctx := cmd.Context()
+			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			if err != nil {
+				logger.FromContext(ctx).Error(err, "failed to create client")
+				return err
+			}
+			return cleanEvictedPods(cmd.Context(), client, opts.Namespace())
 		},
 	}
 	opts.BindCommonFlags(cmd)
@@ -54,13 +61,8 @@ func NewCommand() *cobra.Command {
 }
 
 // cleanEvictedPods cleans up evicted pods in the specified namespace.
-func cleanEvictedPods(ctx context.Context, namespace string) error {
+func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	log := logger.FromContext(ctx)
-	client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
-	if err != nil {
-		log.Error(err, "failed to create client")
-		return err
-	}
 
 	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
