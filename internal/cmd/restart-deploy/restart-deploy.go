@@ -67,13 +67,8 @@ func restartDeployment(ctx context.Context, client kubernetes.Interface, namespa
 
 	for _, target := range targets {
 		dep, err := client.AppsV1().Deployments(namespace).Get(ctx, target, metav1.GetOptions{})
-		if err != nil {
+		if err != nil || dep == nil {
 			log.Error(err, "failed to get deployment", "target",
-				fmt.Sprintf("%s/%s", namespace, target))
-			return err
-		}
-		if dep == nil {
-			log.Error(err, "deployment not found", "target",
 				fmt.Sprintf("%s/%s", namespace, target))
 			return err
 		}
