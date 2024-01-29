@@ -62,18 +62,59 @@ func TestRebalancePods_ReplicaSetUnderRollingUpdate(t *testing.T) {
 			Name: "test-node",
 		},
 	}
+
+	replicas := int32(1)
 	testRS := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-rs",
+			Name:      "test-rs",
+			Namespace: "default",
+			UID:       "1234567890",
 			Annotations: map[string]string{
 				"kubectl.kubernetes.io/last-applied-configuration": "{}",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "Deployment",
+					Name: "test-job",
+					UID:  "abcdefghij",
+				},
+				{
+					Kind: "Deployment",
+					Name: "test-job-w",
+					UID:  "abcdefghij",
+				},
 			},
 		},
 		Status: appsv1.ReplicaSetStatus{
 			ObservedGeneration: 1,
 		},
+		Spec: appsv1.ReplicaSetSpec{
+			Replicas: &replicas,
+		},
 	}
-	client := fake.NewSimpleClientset(testNode, testRS)
+	testPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "Job",
+					Name: "test-job",
+					UID:  "1234567890",
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(testNode, testRS, testPod)
 
 	err := rebalancePods(ctx, client, "default")
 	assert.NoError(t, err)
@@ -120,16 +161,20 @@ func TestRebalancePods_PodNotOwnedByReplicaSet(t *testing.T) {
 	}
 	testRS := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-rs",
+			Name:      "test-rs",
+			Namespace: "default",
+			UID:       "0123456789",
 		},
 	}
 	testPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-pod",
+			Name:      "test-pod",
+			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					Kind: "Job",
 					Name: "test-job",
+					UID:  "9876543210",
 				},
 			},
 		},
