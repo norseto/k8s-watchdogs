@@ -25,6 +25,7 @@ SOFTWARE.
 package k8sclient
 
 import (
+	"context"
 	"flag"
 	"os"
 	"testing"
@@ -92,5 +93,42 @@ func TestGetKubeconfig(t *testing.T) {
 				t.Errorf("expected %s, got %s", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestFromContext(t *testing.T) {
+	// Test when context contains Options value
+	expectedOptions := &Options{} // Replace with the actual initialization of Options struct
+	ctx := context.WithValue(context.Background(), contextKey{}, expectedOptions)
+	options := FromContext(ctx)
+	if options != expectedOptions {
+		t.Errorf("Expected options to be %v, but got %v", expectedOptions, options)
+	}
+
+	// Test when context does not contain Options value
+	ctx = context.Background()
+	options = FromContext(ctx)
+	if options == nil {
+		t.Errorf("Expected options to be non-nil, but got nil")
+	}
+}
+
+func TestWithContext(t *testing.T) {
+	// Positive test case
+	opts := &Options{} // Fill in the necessary options
+	ctx := context.Background()
+	ctx = WithContext(ctx, opts)
+
+	// Verify that the options are correctly set in the context
+	if value := ctx.Value(contextKey{}); value != opts {
+		t.Errorf("Expected options %v, but got %v", opts, value)
+	}
+
+	// Negative test case
+	// Verify that the options are not set in the context if nil is passed
+	ctx = context.Background()
+	ctx = WithContext(ctx, nil)
+	if value := ctx.Value(contextKey{}); value != (*Options)(nil) {
+		t.Errorf("Expected nil options, but got %v", value)
 	}
 }
