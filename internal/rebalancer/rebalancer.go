@@ -48,7 +48,6 @@ type ReplicaState struct {
 // and a boolean flag indicating whether the Pod has been deleted or not.
 type PodStatus struct {
 	Pod     *corev1.Pod
-	Node    *corev1.Node
 	deleted bool
 }
 
@@ -95,25 +94,33 @@ func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 	logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
 		"cpu", res.Cpu(), "mem", res.Memory())
 
-	nodes := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
-	r.current.Nodes = mergeNodes(nodes, r.current.PodStatus)
+	schedulables := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
+	r.current.Nodes = mergeNodes(schedulables, r.current.Nodes, r.current.PodStatus)
 }
 
-func mergeNodes(nodes []*corev1.Node, podState []*PodStatus) []*corev1.Node {
+func mergeNodes(origin, nodes []*corev1.Node, podState []*PodStatus) []*corev1.Node {
+	originMap := nodeMap(origin)
+	result := origin
+	nodeMap := nodeMap(nodes)
+
+	for _, pod := range podState {
+		if pod.Pod == nil {
+			continue
+		}
+		name := pod.Pod.Spec.NodeName
+		if _, ok := originMap[name]; !ok {
+			result = append(result, nodeMap[name])
+		}
+	}
+	return result
+}
+
+func nodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
 	nodeset := make(map[string]*corev1.Node)
 	for _, node := range nodes {
 		nodeset[node.Name] = node
 	}
-	for _, pod := range podState {
-		if pod.Node != nil {
-			nodeset[pod.Node.Name] = pod.Node
-		}
-	}
-	result := make([]*corev1.Node, 0, len(nodeset))
-	for _, node := range nodeset {
-		result = append(result, node)
-	}
-	return result
+	return nodeset
 }
 
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current
@@ -179,10 +186,10 @@ func (r *Rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, 
 	l := len(r.current.PodStatus)
 	for i := 0; i < l; i++ {
 		s := r.current.PodStatus[i]
-		if s.deleted {
+		if s.deleted || s.Pod == nil {
 			continue
 		}
-		if s.Pod != nil && s.Pod.Spec.NodeName == node || s.Node != nil && s.Node.Name == node {
+		if s.Pod.Spec.NodeName == node {
 			log.V(1).Info("deleting pod on node", "node", node, "pod", s.Pod.Name)
 			s.deleted = true
 			return k8score.DeletePod(ctx, client, *s.Pod)
@@ -214,14 +221,12 @@ func (r *Rebalancer) getNodeWithMaxPods() (string, int) {
 func (r *Rebalancer) countPodsPerNode() map[string]int {
 	podCounts := make(map[string]int)
 	for _, s := range r.current.PodStatus {
-		if s.deleted {
+		if s == nil || s.deleted {
 			continue
 		}
 		nodeName := ""
 		if s.Pod != nil {
 			nodeName = s.Pod.Spec.NodeName
-		} else if s.Node != nil {
-			nodeName = s.Node.Name
 		}
 		podCounts[nodeName]++
 	}

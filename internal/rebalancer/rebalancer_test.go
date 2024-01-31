@@ -130,8 +130,7 @@ func TestFilterSchedulables(t *testing.T) {
 		},
 	}
 	podStatus := &PodStatus{
-		Pod:  pod,
-		Node: node("node-1"),
+		Pod: pod,
 	}
 	replicaState := &ReplicaState{
 		PodStatus: []*PodStatus{podStatus},
@@ -219,8 +218,13 @@ func TestDeletePodOnNode(t *testing.T) {
 	// Create a test ReplicaState
 	replicaState := &ReplicaState{
 		PodStatus: []*PodStatus{
-			{Pod: &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-1"}}, Node: node("node-1")},
-			{Pod: &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-2"}}, Node: node("node-2")},
+			{Pod: pod("pod-1", "node-1")},
+			{Pod: pod("pod-2", "node-2")},
+		},
+		Nodes: []*corev1.Node{
+			node("node-1"),
+			node("node-2"),
+			node("node-3"),
 		},
 	}
 	rebalancer := &Rebalancer{
@@ -255,12 +259,19 @@ func TestGetNodeWithMaxPods(t *testing.T) {
 	// Create a test ReplicaState
 	replicaState := &ReplicaState{
 		PodStatus: []*PodStatus{
-			{Node: node("node-1")},
-			{Node: node("node-2")},
-			{Node: node("node-2")},
-			{Node: node("node-3")},
-			{Node: node("node-3")},
-			{Node: node("node-3")},
+			{Pod: pod("pod-1", "node-1")},
+			{Pod: pod("pod-2", "node-2")},
+			{Pod: pod("pod-3", "node-2")},
+			nil,
+			{Pod: pod("pod-4", "node-3")},
+			{Pod: pod("pod-5", "node-3")},
+			{Pod: pod("pod-6", "node-3")},
+		},
+		Nodes: []*corev1.Node{
+			node("node-1"),
+			nil,
+			node("node-2"),
+			node("node-3"),
 		},
 	}
 	rebalancer := &Rebalancer{
@@ -282,12 +293,17 @@ func TestCountPodsPerNode(t *testing.T) {
 	// Create a test ReplicaState
 	replicaState := &ReplicaState{
 		PodStatus: []*PodStatus{
-			{Node: node("node-1")},
-			{Node: node("node-2")},
-			{Node: node("node-2")},
-			{Node: node("node-3")},
-			{Node: node("node-3")},
-			{Node: node("node-3")},
+			{Pod: pod("pod-1", "node-1")},
+			{Pod: pod("pod-2", "node-2")},
+			{Pod: pod("pod-3", "node-2")},
+			{Pod: pod("pod-4", "node-3")},
+			{Pod: pod("pod-5", "node-3")},
+			{Pod: pod("pod-6", "node-3")},
+		},
+		Nodes: []*corev1.Node{
+			node("node-1"),
+			node("node-2"),
+			node("node-3"),
 		},
 	}
 	rebalancer := &Rebalancer{

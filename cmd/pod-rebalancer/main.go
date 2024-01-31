@@ -118,8 +118,7 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 			if !k8sapps.IsPodOwnedBy(rs, &po) {
 				continue
 			}
-			node := nodeMap[po.Spec.NodeName]
-			postat := rebalancer.PodStatus{Pod: po.DeepCopy(), Node: node}
+			postat := rebalancer.PodStatus{Pod: po.DeepCopy()}
 			rstat, ok := rsmap[rs.ObjectMeta.UID]
 			if !ok {
 				rstat = &rebalancer.ReplicaState{Replicaset: rs, Nodes: nodes}
