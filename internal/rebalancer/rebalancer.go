@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
-	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
@@ -176,11 +175,15 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 
 // deletePodOnNode deletes a Pod on specified Node.
 func (r *Rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, node string) error {
+	log := logger.FromContext(ctx)
 	l := len(r.current.PodStatus)
 	for i := 0; i < l; i++ {
 		s := r.current.PodStatus[i]
-		if s.Node.Name == node && !s.deleted {
-			log.Debug("Deleting Pod " + s.Pod.Name + " in " + node)
+		if s.deleted {
+			continue
+		}
+		if s.Pod != nil && s.Pod.Spec.NodeName == node || s.Node != nil && s.Node.Name == node {
+			log.V(1).Info("deleting pod on node", "node", node, "pod", s.Pod.Name)
 			s.deleted = true
 			return k8score.DeletePod(ctx, client, *s.Pod)
 		}
@@ -214,7 +217,13 @@ func (r *Rebalancer) countPodsPerNode() map[string]int {
 		if s.deleted {
 			continue
 		}
-		podCounts[s.Node.Name]++
+		nodeName := ""
+		if s.Pod != nil {
+			nodeName = s.Pod.Spec.NodeName
+		} else if s.Node != nil {
+			nodeName = s.Node.Name
+		}
+		podCounts[nodeName]++
 	}
 	return podCounts
 }

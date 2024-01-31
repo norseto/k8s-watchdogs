@@ -34,7 +34,6 @@ import (
 	rdcmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-deploy"
 	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +60,7 @@ func main() {
 	)
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Error(err, "Failed to execute command")
+		logger.FromContext(ctx).Error(err, "Failed to execute command")
 		os.Exit(1)
 	}
 }

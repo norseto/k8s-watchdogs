@@ -27,13 +27,13 @@ package rebalancer
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 func TestSpecReplicas(t *testing.T) {
@@ -100,6 +100,28 @@ func node(name string, opt ...func(n *corev1.Node)) *corev1.Node {
 	return n
 }
 
+func pod(name, node string, opt ...func(p *corev1.Pod)) *corev1.Pod {
+	p := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		Spec:       corev1.PodSpec{NodeName: node},
+	}
+	for _, o := range opt {
+		o(p)
+	}
+	return p
+}
+
+func capacity(cpu, memory string) func(n *corev1.Node) {
+	return func(n *corev1.Node) {
+		res := corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(cpu),
+			corev1.ResourceMemory: resource.MustParse(memory),
+		}
+		n.Status.Capacity = res
+		n.Status.Allocatable = res.DeepCopy()
+	}
+}
+
 func TestFilterSchedulables(t *testing.T) {
 	// Create a test ReplicaState
 	pod := &corev1.Pod{
@@ -144,39 +166,52 @@ func TestFilterSchedulables(t *testing.T) {
 }
 
 func TestRebalance(t *testing.T) {
+	replicas := int32(3)
+	ctx := context.Background()
+
 	// Create a test ReplicaState
 	replicaSet := &appsv1.ReplicaSet{
 		Status: appsv1.ReplicaSetStatus{
-			Replicas: 5,
+			Replicas: replicas,
+		},
+		Spec: appsv1.ReplicaSetSpec{
+			Replicas: &replicas,
 		},
 	}
+	node1, node2, node3 :=
+		node("node-1", capacity("100m", "100Mi")),
+		node("node-2", capacity("100m", "100Mi")),
+		node("node-3", capacity("100m", "100Mi"))
+	pod1, pod2, pod3 :=
+		pod("pod-1", "node-1"),
+		pod("pod-2", "node-2"),
+		pod("pod-3", "node-2")
+
 	replicaState := &ReplicaState{
 		Replicaset: replicaSet,
-		Nodes: []*corev1.Node{
-			node("node-1"),
-			node("node-2"),
-			node("node-3"),
-		},
+		Nodes:      []*corev1.Node{node1, node2, node3},
 		PodStatus: []*PodStatus{
-			{Pod: &corev1.Pod{Spec: corev1.PodSpec{NodeName: "node-1"}}},
-			{Pod: &corev1.Pod{Spec: corev1.PodSpec{NodeName: "node-2"}}},
-			{Pod: &corev1.Pod{Spec: corev1.PodSpec{NodeName: "node-3"}}},
+			{Pod: pod1},
+			{Pod: pod2},
+			{Pod: pod3},
 		},
 	}
-	rebalancer := &Rebalancer{
-		current:          replicaState,
-		maxRebalanceRate: 0.25,
-	}
+	rebalancer := NewRebalancer(ctx, replicaState)
 
 	// Create a mock kubernetes.Interface
-	mockClient := &kubernetes.Clientset{}
+	mockClient := fake.NewSimpleClientset(replicaSet, node1, node2, node3, pod1, pod2, pod3)
 
 	// Call the Rebalance function
-	_, err := rebalancer.Rebalance(context.Background(), mockClient)
+	result, err := rebalancer.Rebalance(ctx, mockClient)
 
 	// Check for any errors
 	if err != nil {
 		t.Errorf("Rebalance returned an error: %v", err)
+	}
+
+	// pod has deleted
+	if !result {
+		t.Errorf("Rebalance should return true")
 	}
 }
 
@@ -203,7 +238,7 @@ func TestDeletePodOnNode(t *testing.T) {
 	}
 
 	// Call the deletePodOnNode function
-	err := rebalancer.deletePodOnNode(context.Background(), client, "node-1")
+	err := rebalancer.deletePodOnNode(ctx, client, "node-1")
 
 	// Check for any errors
 	if err != nil {
