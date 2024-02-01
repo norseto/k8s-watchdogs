@@ -102,31 +102,6 @@ func TestReplicaSetStatus_IsRollingUpdating(t *testing.T) {
 	assert.False(t, rsStatus.IsRollingUpdating(context.Background(), rs))
 }
 
-func TestIsPodScheduleLimited(t *testing.T) {
-	rs := appsv1.ReplicaSet{
-		Spec: appsv1.ReplicaSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Affinity: &corev1.Affinity{},
-					NodeSelector: map[string]string{
-						"key": "value",
-					},
-				},
-			},
-		},
-	}
-	assert.True(t, IsPodScheduleLimited(rs))
-
-	rs = appsv1.ReplicaSet{
-		Spec: appsv1.ReplicaSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{},
-			},
-		},
-	}
-	assert.False(t, IsPodScheduleLimited(rs))
-}
-
 func TestIsPodOwnedBy(t *testing.T) {
 	rs := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{UID: types.UID("owner-1")},

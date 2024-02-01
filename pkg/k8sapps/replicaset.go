@@ -65,13 +65,6 @@ func (u *ReplicaSetStatus) IsRollingUpdating(_ context.Context, rs *appsv1.Repli
 	return false
 }
 
-// IsPodScheduleLimited checks if the given ReplicaSet has limited scheduling for its Pods.
-// It returns true if the scheduling is limited, otherwise false.
-func IsPodScheduleLimited(rs appsv1.ReplicaSet) bool {
-	podSpec := rs.Spec.Template.Spec
-	return podSpec.Affinity != nil || len(podSpec.NodeSelector) > 0
-}
-
 // IsPodOwnedBy returns true if the given Pod is owned by the specified ReplicaSet, false otherwise.
 // It compares the UID of the ReplicaSet with the UID of each owner reference in the Pod's metadata.
 // Example usage:
