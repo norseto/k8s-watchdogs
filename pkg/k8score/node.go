@@ -188,7 +188,7 @@ func nodeSelectorTermMatches(node *corev1.Node, term *corev1.NodeSelectorTerm) b
 }
 
 // contains checks that the string is contains in the specified list
-func contains(s string, list []string) bool {
+func contains[T comparable](s T, list []T) bool {
 	for _, v := range list {
 		if v == s {
 			return true
