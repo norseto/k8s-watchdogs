@@ -115,12 +115,16 @@ func mergeNodes(origin, nodes []*corev1.Node, podState []*PodStatus) []*corev1.N
 	return result
 }
 
+// nodeMap returns a map that maps the name of a node to the node object itself.
+// It takes in a slice of nodes and iterates through each node, populating the map
+// with the node's name as the key and the node object as the value.
+// It then returns the resulting map.
 func nodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
-	nodeset := make(map[string]*corev1.Node)
+	nodeSet := make(map[string]*corev1.Node)
 	for _, node := range nodes {
-		nodeset[node.Name] = node
+		nodeSet[node.Name] = node
 	}
-	return nodeset
+	return nodeSet
 }
 
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current
