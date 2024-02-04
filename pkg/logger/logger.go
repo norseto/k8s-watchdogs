@@ -42,7 +42,9 @@ func InitLogger() logr.Logger {
 		Development: false,
 	}
 	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 
 	return zap.New(zap.UseFlagOptions(&opts))
 }
@@ -52,7 +54,7 @@ func InitCmdLogger(rootCmd *cobra.Command) {
 	opts := zap.Options{
 		Development: false,
 	}
-	BindPFlags(&opts, rootCmd.PersistentFlags())
+	bindPFlags(&opts, rootCmd.PersistentFlags())
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		key := "cmd"
 		setupLogger(&opts, cmd)
@@ -118,8 +120,8 @@ func WithContext(ctx context.Context, log logr.Logger) context.Context {
 	return clog.IntoContext(ctx, log)
 }
 
-// BindPFlags setups zap log options
-func BindPFlags(o *zap.Options, fs *pflag.FlagSet) {
+// bindPFlags setups zap log options
+func bindPFlags(o *zap.Options, fs *pflag.FlagSet) {
 	// Set Development mode value
 	fs.Bool("zap-devel", o.Development,
 		"Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). "+
@@ -132,7 +134,7 @@ func BindPFlags(o *zap.Options, fs *pflag.FlagSet) {
 		"Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', "+
 			"or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
 
-	// Set the StrackTrace Level
+	// Set the StackTrace Level
 	fs.String("zap-stacktrace-level", "error",
 		"Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').")
 
