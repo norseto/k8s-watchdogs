@@ -8,9 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
-	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,7 +20,7 @@ import (
 )
 
 func main() {
-	var client kubernetes.Interface
+	var kubeClient kubernetes.Interface
 	var namespace = metav1.NamespaceAll
 
 	ctx := logger.WithContext(context.Background(), logger.InitLogger())
@@ -29,28 +28,28 @@ func main() {
 
 	log.Info("Starting multiple pod rs Rebalancer...")
 
-	opt := &k8sclient.Options{}
+	opt := &client.Options{}
 	opt.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	client, err := k8sclient.NewClientset(opt)
+	kubeClient, err := client.NewClientset(opt)
 	if err != nil {
-		log.Error(err, "failed to create client")
+		log.Error(err, "failed to create kubeClient")
 		panic(err)
 	}
 
-	nodes, err := k8score.GetAllNodes(ctx, client)
+	nodes, err := kube.GetAllNodes(ctx, kubeClient)
 	if err != nil {
 		log.Error(err, "failed to list nodes")
 		panic(err)
 	}
 
-	replicas, err := getTargetReplicaSets(ctx, client, namespace)
+	replicas, err := getTargetReplicaSets(ctx, kubeClient, namespace)
 	if err != nil {
 		log.Error(err, "failed to get replicaset")
 		panic(err)
 	}
-	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
+	rs, err := getCandidatePods(ctx, kubeClient, namespace, nodes, replicas)
 	if err != nil {
 		log.Error(err, "failed to list pods")
 		panic(err)
@@ -61,7 +60,7 @@ func main() {
 		return
 	}
 
-	rsstat := k8sapps.NewReplicaSetStatus(replicas)
+	rsstat := kube.NewReplicaSetStatus(replicas)
 	rebalanced := 0
 	for _, r := range rs {
 		name := r.Replicaset.Name
@@ -69,7 +68,7 @@ func main() {
 			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
-		result, err := rebalancer.NewRebalancer(ctx, r).Rebalance(ctx, client)
+		result, err := rebalancer.NewRebalancer(ctx, r).Rebalance(ctx, kubeClient)
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {
@@ -111,11 +110,11 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 		return nil, fmt.Errorf("failed to list pod for: %s, error: %w", ns, err)
 	}
 	for _, po := range pods.Items {
-		if !k8score.IsPodReadyRunning(po) {
+		if !kube.IsPodReadyRunning(po) {
 			continue
 		}
 		for _, rs := range replicas {
-			if !k8sapps.IsPodOwnedBy(rs, &po) {
+			if !kube.IsPodOwnedBy(rs, &po) {
 				continue
 			}
 			postat := rebalancer.PodStatus{Pod: po.DeepCopy()}

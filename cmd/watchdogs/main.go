@@ -32,14 +32,14 @@ import (
 	docmd "github.com/norseto/k8s-watchdogs/internal/cmd/delete-oldest"
 	rpcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	rdcmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-deploy"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	opts := &k8sclient.Options{}
-	ctx := k8sclient.WithContext(context.Background(), opts)
+	opts := &client.Options{}
+	ctx := client.WithContext(context.Background(), opts)
 
 	var rootCmd = &cobra.Command{
 		Use:   "watchdogs",

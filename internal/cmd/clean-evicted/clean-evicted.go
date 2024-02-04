@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
-	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
@@ -48,12 +48,12 @@ func NewCommand() *cobra.Command {
 		Short: "Clean evicted pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
-				logger.FromContext(ctx).Error(err, "failed to create client")
+				logger.FromContext(ctx).Error(err, "failed to create clnt")
 				return err
 			}
-			return cleanEvictedPods(cmd.Context(), client, opts.Namespace())
+			return cleanEvictedPods(cmd.Context(), clnt, opts.Namespace())
 		},
 	}
 	opts.BindCommonFlags(cmd)
@@ -72,14 +72,14 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 
 	var evictedPods []v1.Pod
 	for _, pod := range pods.Items {
-		if k8score.IsEvicted(nil, pod) {
+		if kube.IsEvicted(nil, pod) {
 			evictedPods = append(evictedPods, pod)
 		}
 	}
 
 	deleted := 0
 	for _, pod := range evictedPods {
-		if err := k8score.DeletePod(ctx, client, pod); err != nil {
+		if err := kube.DeletePod(ctx, client, pod); err != nil {
 			log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		} else {
 			deleted++

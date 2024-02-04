@@ -28,7 +28,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
-	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -91,11 +91,11 @@ func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 		return
 	}
 
-	res := k8score.GetPodRequestResources(firstPod.Spec)
+	res := kube.GetPodRequestResources(firstPod.Spec)
 	logger.FromContext(ctx).V(1).Info("Pod requests", "name", firstPod.Name,
 		"cpu", res.Cpu(), "mem", res.Memory())
 
-	schedulables := k8score.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
+	schedulables := kube.FilterScheduleable(r.current.Nodes, &firstPod.Spec)
 	r.current.Nodes = mergeNodes(schedulables, r.current.Nodes, r.current.PodStatus)
 }
 
@@ -158,7 +158,7 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 	for i := 0; i < maxDel; i++ {
 		node, num := r.getNodeWithMaxPods()
 		for _, n := range r.current.Nodes {
-			capacity, err := k8score.GetNodeResourceCapacity(n)
+			capacity, err := kube.GetNodeResourceCapacity(n)
 			if err != nil {
 				return deleted > 0, fmt.Errorf("failed to get Node capacity: %v", err)
 			}
@@ -193,7 +193,7 @@ func (r *Rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, 
 		if s.Pod.Spec.NodeName == node {
 			log.V(1).Info("deleting pod on node", "node", node, "pod", s.Pod.Name)
 			s.deleted = true
-			return k8score.DeletePod(ctx, client, *s.Pod)
+			return kube.DeletePod(ctx, client, *s.Pod)
 		}
 	}
 	return nil

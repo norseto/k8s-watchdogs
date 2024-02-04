@@ -28,8 +28,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/internal/options"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,12 +48,12 @@ func NewCommand() *cobra.Command {
 				return nil
 			}
 			ctx := cmd.Context()
-			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return err
 			}
-			return restartDeployment(cmd.Context(), client, opts.Namespace(), args)
+			return restartDeployment(cmd.Context(), clnt, opts.Namespace(), args)
 		},
 		Args: cobra.MinimumNArgs(1),
 	}
@@ -73,7 +73,7 @@ func restartDeployment(ctx context.Context, client kubernetes.Interface, namespa
 			return err
 		}
 
-		err = k8sapps.RestartDeployment(ctx, client, dep)
+		err = kube.RestartDeployment(ctx, client, dep)
 		if err != nil {
 			log.Error(err, "failed to restart deployment", "target",
 				fmt.Sprintf("%s/%s", namespace, target))

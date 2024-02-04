@@ -1,4 +1,4 @@
-package k8sapps
+package kube
 
 import (
 	"context"

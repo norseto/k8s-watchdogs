@@ -27,8 +27,8 @@ package deleteoldest
 import (
 	"context"
 	"github.com/norseto/k8s-watchdogs/internal/options"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
-	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -52,14 +52,14 @@ func NewCommand() *cobra.Command {
 				_ = cmd.Usage()
 				return nil
 			}
-			
+
 			ctx := cmd.Context()
-			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
-				logger.FromContext(ctx).Error(err, "failed to create client")
+				logger.FromContext(ctx).Error(err, "failed to create clnt")
 				return err
 			}
-			return deleteOldestPods(cmd.Context(), client, opts.Namespace(), prefix, minPods)
+			return deleteOldestPods(cmd.Context(), clnt, opts.Namespace(), prefix, minPods)
 		},
 	}
 	opts.BindCommonFlags(cmd)
@@ -86,7 +86,7 @@ func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespac
 		log.Error(err, "failed to pick oldest pod")
 		return err
 	}
-	if err := k8score.DeletePod(ctx, client, *picked); err != nil {
+	if err := kube.DeletePod(ctx, client, *picked); err != nil {
 		log.Error(err, "failed to delete pod")
 		return err
 	}
@@ -100,7 +100,7 @@ func pickOldest(prefix string, min int, pods []corev1.Pod) (*corev1.Pod, error) 
 	var oldest corev1.Pod
 	count := 0
 	for _, p := range pods {
-		if !k8score.IsPodReadyRunning(p) || !strings.HasPrefix(p.ObjectMeta.Name, prefix) {
+		if !kube.IsPodReadyRunning(p) || !strings.HasPrefix(p.ObjectMeta.Name, prefix) {
 			continue
 		}
 		if oldest.Status.StartTime == nil ||

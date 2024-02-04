@@ -33,9 +33,8 @@ import (
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sapps"
-	"github.com/norseto/k8s-watchdogs/pkg/k8sclient"
-	"github.com/norseto/k8s-watchdogs/pkg/k8score"
+	"github.com/norseto/k8s-watchdogs/pkg/kube"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
 
@@ -54,12 +53,12 @@ func NewCommand() *cobra.Command {
 		Short: "Delete bias scheduled pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			client, err := k8sclient.NewClientset(k8sclient.FromContext(ctx))
+			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return err
 			}
-			return rebalancePods(cmd.Context(), client, opts.Namespace())
+			return rebalancePods(cmd.Context(), clnt, opts.Namespace())
 		},
 	}
 	opts.BindCommonFlags(cmd)
@@ -68,7 +67,7 @@ func NewCommand() *cobra.Command {
 
 func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	log := logger.FromContext(ctx)
-	nodes, err := k8score.GetAllNodes(ctx, client)
+	nodes, err := kube.GetAllNodes(ctx, client)
 	if err != nil {
 		log.Error(err, "failed to list nodes")
 		return err
@@ -90,7 +89,7 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 		return nil
 	}
 
-	rsStat := k8sapps.NewReplicaSetStatus(replicas)
+	rsStat := kube.NewReplicaSetStatus(replicas)
 	numRebalanced := 0
 	for _, r := range rs {
 		name := r.Replicaset.Name
@@ -140,11 +139,11 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 		return nil, fmt.Errorf("failed to list pod for: %s, error: %w", ns, err)
 	}
 	for _, po := range pods.Items {
-		if !k8score.IsPodReadyRunning(po) {
+		if !kube.IsPodReadyRunning(po) {
 			continue
 		}
 		for _, rs := range replicas {
-			if !k8sapps.IsPodOwnedBy(rs, &po) {
+			if !kube.IsPodOwnedBy(rs, &po) {
 				continue
 			}
 			poStat := rebalancer.PodStatus{Pod: po.DeepCopy()}
