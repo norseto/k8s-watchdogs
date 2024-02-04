@@ -27,6 +27,7 @@ package rebalancer
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	"github.com/norseto/k8s-watchdogs/pkg/k8score"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	appsv1 "k8s.io/api/apps/v1"
@@ -99,9 +100,9 @@ func (r *Rebalancer) filterSchedulables(ctx context.Context) {
 }
 
 func mergeNodes(origin, nodes []*corev1.Node, podState []*PodStatus) []*corev1.Node {
-	originMap := nodeMap(origin)
+	originMap := toNodeMap(origin)
 	result := origin
-	nodeMap := nodeMap(nodes)
+	nodeMap := toNodeMap(nodes)
 
 	for _, pod := range podState {
 		if pod.Pod == nil {
@@ -115,23 +116,12 @@ func mergeNodes(origin, nodes []*corev1.Node, podState []*PodStatus) []*corev1.N
 	return result
 }
 
-// nodeMap returns a map that maps the name of a node to the node object itself.
+// toNodeMap returns a map that maps the name of a node to the node object itself.
 // It takes in a slice of nodes and iterates through each node, populating the map
 // with the node's name as the key and the node object as the value.
 // It then returns the resulting map.
-func nodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
-	return makeMap(nodes, func(node *corev1.Node) string { return node.Name })
-}
-
-// makeMap takes in a slice of items and a namer function,
-// and returns a map that maps the result of the namer function
-// for each item to the item itself.
-func makeMap[T any, K comparable](items []T, namer func(T) K) map[K]T {
-	result := make(map[K]T)
-	for _, i := range items {
-		result[namer(i)] = i
-	}
-	return result
+func toNodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
+	return generics.MakeMap(nodes, func(node *corev1.Node) string { return node.Name })
 }
 
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current

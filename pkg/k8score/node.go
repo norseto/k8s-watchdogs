@@ -27,6 +27,7 @@ package k8score
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -105,7 +106,7 @@ func FilterScheduleable(nodes []*corev1.Node, podSpec *corev1.PodSpec) []*corev1
 //
 // Parameters:
 // - node (*corev1.Node): The node to be checked for taint toleration.
-// - podSpec (*corev1.PodSpec): The spec of the pod that contains the taints to be tolerated.
+// - podSpec (*corev1.PodSpec): The spec of the pod that Contains the taints to be tolerated.
 //
 // Returns:
 // - bool: Whether the node tolerates all the taints in the pod spec.
@@ -164,11 +165,11 @@ func nodeSelectorTermMatches(node *corev1.Node, term *corev1.NodeSelectorTerm) b
 	for _, expr := range term.MatchExpressions {
 		switch expr.Operator {
 		case corev1.NodeSelectorOpIn:
-			if !contains(node.Labels[expr.Key], expr.Values) {
+			if !generics.Contains(node.Labels[expr.Key], expr.Values) {
 				return false
 			}
 		case corev1.NodeSelectorOpNotIn:
-			if contains(node.Labels[expr.Key], expr.Values) {
+			if generics.Contains(node.Labels[expr.Key], expr.Values) {
 				return false
 			}
 		case corev1.NodeSelectorOpExists:
@@ -185,16 +186,6 @@ func nodeSelectorTermMatches(node *corev1.Node, term *corev1.NodeSelectorTerm) b
 		}
 	}
 	return true
-}
-
-// contains checks that the string is contains in the specified list
-func contains[T comparable](s T, list []T) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 // GetNodeResourceCapacity retrieves the allocatable resource capacity of a node.
