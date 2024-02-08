@@ -62,11 +62,11 @@ func TestRestartDeployment(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check if the annotation was added
-	_, ok := updatedDep.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"]
+	_, ok := updatedDep.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"]
 	assert.True(t, ok)
 
 	// Check if the annotation value is a valid time format
-	_, err = time.Parse(time.RFC3339, updatedDep.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"])
+	_, err = time.Parse(time.RFC3339, updatedDep.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"])
 	assert.NoError(t, err)
 
 	// Clean up the test deployment

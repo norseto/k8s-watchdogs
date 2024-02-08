@@ -5,7 +5,7 @@
   "image": "mcr.microsoft.com/devcontainers/base:bullseye",
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
-      "version": "1.21"
+      "version": "1.22"
     },
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "version": "latest",
@@ -56,8 +56,8 @@
   "mounts": [
     "type=volume,source=aws-cred,target=/root/.aws,consistency=delegated",
     "type=volume,source=oci-k8s-cred,target=/root/.kube,consistency=delegated",
-    "type=volume,source=go-sdk-1-21,target=/usr/local/go,consistency=delegated",
-    "type=volume,source=go-path-bin-1-21,target=/go/bin,consistency=delegated",
+    "type=volume,source=go-sdk-1-22,target=/usr/local/go,consistency=delegated",
+    "type=volume,source=go-path-bin-1-22,target=/go/bin,consistency=delegated",
     "type=volume,source=go-path-pkg,target=/go/pkg,consistency=delegated",
     "type=volume,source=go-cache,target=/tmp/gocache,consistency=delegated"
   ]

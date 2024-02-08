@@ -88,8 +88,8 @@ func (u *ReplicaSetStatus) IsRollingUpdating(_ context.Context, rs *appsv1.Repli
 // isOwned = IsPodOwnedBy(rs, po)
 // assert.False(t, isOwned)
 func IsPodOwnedBy(rs *appsv1.ReplicaSet, po *corev1.Pod) bool {
-	uid := rs.ObjectMeta.UID
-	owners := po.ObjectMeta.OwnerReferences
+	uid := rs.UID
+	owners := po.OwnerReferences
 	for _, o := range owners {
 		if o.UID == uid {
 			return true

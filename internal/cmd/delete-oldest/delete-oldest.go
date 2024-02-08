@@ -91,7 +91,7 @@ func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespac
 		return err
 	}
 	log.Info("removed", "pod",
-		picked.ObjectMeta.Namespace+"/"+picked.ObjectMeta.Name)
+		picked.Namespace+"/"+picked.Name)
 
 	return nil
 }
@@ -100,7 +100,7 @@ func pickOldest(prefix string, min int, pods []corev1.Pod) (*corev1.Pod, error) 
 	var oldest corev1.Pod
 	count := 0
 	for _, p := range pods {
-		if !kube.IsPodReadyRunning(p) || !strings.HasPrefix(p.ObjectMeta.Name, prefix) {
+		if !kube.IsPodReadyRunning(p) || !strings.HasPrefix(p.Name, prefix) {
 			continue
 		}
 		if oldest.Status.StartTime == nil ||
