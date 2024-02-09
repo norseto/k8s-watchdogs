@@ -34,13 +34,29 @@ func Contains[T comparable](s T, list []T) bool {
 	return false
 }
 
-// MakeMap takes in a slice of items and a namer function,
+// MakItemMap takes in a slice of items and a namer function,
 // and returns a map that maps the result of the namer function
 // for each item to the item itself.
-func MakeMap[T any, K comparable](items []T, namer func(T) K) map[K]T {
-	result := make(map[K]T)
+func MakItemMap[T any, K comparable](items []T, namer func(T) K) map[K]T {
+	return MakeMap(items, namer, func(i, _ T) T { return i }, nil)
+}
+
+// MakeMap creates a map by iterating through the items and applying the namer, mapper, and picker functions.
+// It returns a map with keys of type K and values of type V.
+// The namer function is used to determine the key for each item.
+// The mapper function is used to compute the value for each key. The current value for the same key is passed
+// as the second argument to the mapper function.
+// The picker function is used to filter the items.
+// Only the items that satisfy the picker function will be included in the result map.
+func MakeMap[T any, K comparable, V any](items []T, namer func(T) K, mapper func(T, V) V, picker func(T) bool) map[K]V {
+	result := make(map[K]V)
 	for _, i := range items {
-		result[namer(i)] = i
+		if picker != nil && !picker(i) {
+			continue
+		}
+		key := namer(i)
+		current := result[key]
+		result[key] = mapper(i, current)
 	}
 	return result
 }

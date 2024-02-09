@@ -121,7 +121,7 @@ func mergeNodes(origin, nodes []*corev1.Node, podState []*PodStatus) []*corev1.N
 // with the node's name as the key and the node object as the value.
 // It then returns the resulting map.
 func toNodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
-	return generics.MakeMap(nodes, func(node *corev1.Node) string { return node.Name })
+	return generics.MakItemMap(nodes, func(node *corev1.Node) string { return node.Name })
 }
 
 // NewRebalancer returns a new instance of the Rebalancer struct with the provided current
@@ -220,16 +220,8 @@ func (r *Rebalancer) getNodeWithMaxPods() (string, int) {
 
 // countPodsPerNode returns a map containing the count of pods per Node in the current replica state.
 func (r *Rebalancer) countPodsPerNode() map[string]int {
-	podCounts := make(map[string]int)
-	for _, s := range r.current.PodStatus {
-		if s == nil || s.deleted {
-			continue
-		}
-		nodeName := ""
-		if s.Pod != nil {
-			nodeName = s.Pod.Spec.NodeName
-		}
-		podCounts[nodeName]++
-	}
-	return podCounts
+	return generics.MakeMap(r.current.PodStatus,
+		func(s *PodStatus) string { return s.Pod.Spec.NodeName },
+		func(s *PodStatus, v int) int { return v + 1 },
+		func(s *PodStatus) bool { return s != nil && !s.deleted && s.Pod != nil })
 }
