@@ -46,17 +46,31 @@ func MakItemMap[T any, K comparable](items []T, namer func(T) K) map[K]T {
 // The namer function is used to determine the key for each item.
 // The mapper function is used to compute the value for each key. The current value for the same key is passed
 // as the second argument to the mapper function.
-// The picker function is used to filter the items.
+// The filter function is used to filter the items.
 // Only the items that satisfy the picker function will be included in the result map.
-func MakeMap[T any, K comparable, V any](items []T, namer func(T) K, mapper func(T, V) V, picker func(T) bool) map[K]V {
+func MakeMap[T any, K comparable, V any](items []T, namer func(T) K, mapper func(T, V) V, filter func(T) bool) map[K]V {
 	result := make(map[K]V)
-	for _, i := range items {
-		if picker != nil && !picker(i) {
+
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		if filter != nil && !filter(item) {
 			continue
 		}
-		key := namer(i)
+		key := namer(item)
 		current := result[key]
-		result[key] = mapper(i, current)
+		result[key] = mapper(item, current)
+	}
+	return result
+}
+
+func Convert[T any, V any](items []T, converter func(T) V, filter func(T) bool) []V {
+	var result []V
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		if filter != nil && !filter(item) {
+			continue
+		}
+		result = append(result, converter(item))
 	}
 	return result
 }

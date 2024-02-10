@@ -41,10 +41,8 @@ func GetAllNodes(ctx context.Context, client kubernetes.Interface) ([]*corev1.No
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
-	nodes := make([]*corev1.Node, len(all.Items))
-	for i, n := range all.Items {
-		nodes[i] = n.DeepCopy()
-	}
+	nodes := generics.Convert(all.Items,
+		func(item corev1.Node) *corev1.Node { return item.DeepCopy() }, nil)
 	return nodes, nil
 }
 
