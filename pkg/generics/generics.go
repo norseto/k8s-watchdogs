@@ -94,3 +94,18 @@ func Each[T any](items []T, action func(T)) {
 		action(item)
 	}
 }
+
+// EachE applies the given action function to each item in the items slice.
+// If the action function returns an error for any item, EachE immediately returns that error.
+// Otherwise, it returns nil.
+// It ensures that the action function has the signature func(T) error,
+// where T represents the type of items in the slice.
+func EachE[T any](items []T, action func(T) error) error {
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		if err := action(item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
