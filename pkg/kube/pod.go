@@ -114,6 +114,7 @@ func IsEvictedPod(pod *corev1.Pod) bool {
 	return false
 }
 
+// FilterPods filters the given list of Pods using the provided filter function and returns a list of filtered Pods.
 func FilterPods(list *corev1.PodList, filter func(*corev1.Pod) bool) []*corev1.Pod {
 	var filtered []*corev1.Pod
 	generics.Each(list.Items, func(item corev1.Pod) {

@@ -62,6 +62,8 @@ func MakeMap[T any, K comparable, V any](items []T, namer func(T) K, mapper func
 	return result
 }
 
+// Convert takes a slice of items of type T, a converter function that converts each item from type T to type V,
+// and a filter function that determines whether each item should be included
 func Convert[T any, V any](items []T, converter func(T) V, filter func(T) bool) []V {
 	var result []V
 	Each(items, func(item T) {
@@ -73,6 +75,19 @@ func Convert[T any, V any](items []T, converter func(T) V, filter func(T) bool) 
 	return result
 }
 
+// Each applies the given action function to each item in the items slice.
+// The action function takes one argument of type T and has no return value.
+// Example usage:
+//
+//	Each([]int{1, 2, 3}, func(item int) {
+//	    fmt.Println(item)
+//	})
+//
+// Another example usage:
+//
+//	Each([]string{"apple", "banana", "cherry"}, func(item string) {
+//	    fmt.Println(item)
+//	})
 func Each[T any](items []T, action func(T)) {
 	for i := 0; i < len(items); i++ {
 		item := items[i]
