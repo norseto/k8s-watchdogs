@@ -119,7 +119,7 @@ func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns s
 	}
 
 	replicas := generics.Convert(all.Items,
-		func(rs appsv1.ReplicaSet) *appsv1.ReplicaSet { return &rs },
+		func(rs appsv1.ReplicaSet) *appsv1.ReplicaSet { return rs.DeepCopy() },
 		func(rs appsv1.ReplicaSet) bool {
 			return rs.Spec.Replicas != nil &&
 				*rs.Spec.Replicas == rs.Status.Replicas &&

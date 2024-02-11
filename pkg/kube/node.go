@@ -48,7 +48,7 @@ func GetAllNodes(ctx context.Context, client kubernetes.Interface) ([]*corev1.No
 
 // CanSchedule checks if a given pod can be scheduled on a node based on various conditions.
 func CanSchedule(node *corev1.Node, podSpec *corev1.PodSpec) bool {
-	// Check schedulability
+	// Check schedultability
 	if node.Spec.Unschedulable {
 		return false
 	}

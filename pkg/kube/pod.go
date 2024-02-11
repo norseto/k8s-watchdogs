@@ -27,6 +27,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,11 +97,29 @@ func toleratesTaint(podSpec *corev1.PodSpec, taint corev1.Taint) bool {
 	return false
 }
 
-// IsEvicted returns the pod is already Evicted
+// IsEvicted returns the pod is already Evicted.
+// Deprecated: Use IsEvictedPod instead
 func IsEvicted(_ context.Context, pod corev1.Pod) bool {
+	return IsEvictedPod(&pod)
+}
+
+// IsEvictedPod checks if a given Pod has been evicted.
+// It returns true if the Pod's phase is "Failed" and the reason is "Evicted",
+// otherwise, it returns false.
+func IsEvictedPod(pod *corev1.Pod) bool {
 	status := pod.Status
 	if status.Phase == corev1.PodFailed && status.Reason == reasonEvicted {
 		return true
 	}
 	return false
+}
+
+func FilterPods(list *corev1.PodList, filter func(*corev1.Pod) bool) []*corev1.Pod {
+	var filtered []*corev1.Pod
+	generics.Each(list.Items, func(item corev1.Pod) {
+		if filter(&item) {
+			filtered = append(filtered, &item)
+		}
+	})
+	return filtered
 }

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
+	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -88,10 +89,8 @@ func getTargetReplicaSets(ctx context.Context, client kubernetes.Interface, ns s
 	if err != nil {
 		return nil, fmt.Errorf("failed to list replicaset: %w", err)
 	}
-	replicas := make([]*appsv1.ReplicaSet, len(all.Items))
-	for i, rs := range all.Items {
-		replicas[i] = rs.DeepCopy()
-	}
+	replicas := generics.Convert(all.Items,
+		func(rs appsv1.ReplicaSet) *appsv1.ReplicaSet { return rs.DeepCopy() }, nil)
 	return replicas, nil
 }
 

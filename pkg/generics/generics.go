@@ -51,26 +51,31 @@ func MakItemMap[T any, K comparable](items []T, namer func(T) K) map[K]T {
 func MakeMap[T any, K comparable, V any](items []T, namer func(T) K, mapper func(T, V) V, filter func(T) bool) map[K]V {
 	result := make(map[K]V)
 
-	for i := 0; i < len(items); i++ {
-		item := items[i]
+	Each(items, func(item T) {
 		if filter != nil && !filter(item) {
-			continue
+			return
 		}
 		key := namer(item)
 		current := result[key]
 		result[key] = mapper(item, current)
-	}
+	})
 	return result
 }
 
 func Convert[T any, V any](items []T, converter func(T) V, filter func(T) bool) []V {
 	var result []V
-	for i := 0; i < len(items); i++ {
-		item := items[i]
+	Each(items, func(item T) {
 		if filter != nil && !filter(item) {
-			continue
+			return
 		}
 		result = append(result, converter(item))
-	}
+	})
 	return result
+}
+
+func Each[T any](items []T, action func(T)) {
+	for i := 0; i < len(items); i++ {
+		item := items[i]
+		action(item)
+	}
 }

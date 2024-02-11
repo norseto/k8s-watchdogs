@@ -34,7 +34,6 @@ import (
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,16 +69,11 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 		return err
 	}
 
-	var evictedPods []v1.Pod
-	for _, pod := range pods.Items {
-		if kube.IsEvicted(nil, pod) {
-			evictedPods = append(evictedPods, pod)
-		}
-	}
+	evictedPods := kube.FilterPods(pods, kube.IsEvictedPod)
 
 	deleted := 0
 	for _, pod := range evictedPods {
-		if err := kube.DeletePod(ctx, client, pod); err != nil {
+		if err := kube.DeletePod(ctx, client, *pod); err != nil {
 			log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		} else {
 			deleted++
