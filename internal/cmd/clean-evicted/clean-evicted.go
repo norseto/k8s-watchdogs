@@ -27,6 +27,7 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
@@ -58,6 +59,9 @@ func NewCommand() *cobra.Command {
 	opts.BindCommonFlags(cmd)
 	return cmd
 }
+
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;delete
+// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get
 
 // cleanEvictedPods cleans up evicted pods in the specified namespace.
 func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespace string) error {

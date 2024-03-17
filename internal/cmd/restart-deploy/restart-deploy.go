@@ -27,6 +27,7 @@ package restartdeploy
 import (
 	"context"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
@@ -61,6 +62,8 @@ func NewCommand() *cobra.Command {
 
 	return cmd
 }
+
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;update
 
 func restartDeployment(ctx context.Context, client kubernetes.Interface, namespace string, targets []string) error {
 	log := logger.FromContext(ctx)

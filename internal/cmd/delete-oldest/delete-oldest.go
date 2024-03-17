@@ -26,6 +26,8 @@ package deleteoldest
 
 import (
 	"context"
+	"strings"
+
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
@@ -35,7 +37,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"strings"
 )
 
 // NewCommand returns a new Cobra command for re-balancing pods.
@@ -70,6 +71,9 @@ func NewCommand() *cobra.Command {
 
 	return cmd
 }
+
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;delete
+// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get
 
 func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespace, prefix string, minPods int) error {
 

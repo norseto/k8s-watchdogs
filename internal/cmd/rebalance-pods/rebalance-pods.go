@@ -30,6 +30,7 @@ package rebalancepods
 import (
 	"context"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
@@ -64,6 +65,11 @@ func NewCommand() *cobra.Command {
 	opts.BindCommonFlags(cmd)
 	return cmd
 }
+
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;delete
+// +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get
+// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list
+// +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get;list
 
 func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	log := logger.FromContext(ctx)
