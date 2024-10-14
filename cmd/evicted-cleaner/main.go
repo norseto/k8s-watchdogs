@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"flag"
+
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
