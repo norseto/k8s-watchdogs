@@ -28,12 +28,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"path/filepath"
 )
 
 // Options represents the configuration options for a kubernetes client.

@@ -27,6 +27,7 @@ package rebalancer
 import (
 	"context"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"

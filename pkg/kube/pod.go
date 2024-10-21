@@ -27,6 +27,7 @@ package kube
 import (
 	"context"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -95,12 +96,6 @@ func toleratesTaint(podSpec *corev1.PodSpec, taint corev1.Taint) bool {
 		}
 	}
 	return false
-}
-
-// IsEvicted returns the pod is already Evicted.
-// Deprecated: Use IsEvictedPod instead
-func IsEvicted(_ context.Context, pod corev1.Pod) bool {
-	return IsEvictedPod(&pod)
 }
 
 // IsEvictedPod checks if a given Pod has been evicted.

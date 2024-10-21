@@ -33,7 +33,6 @@ func main() {
 
 	pods, err := kubeClient.CoreV1().Pods(corev1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Error(err, "failed to list pods")
 		panic(err)
 	}
 

@@ -28,10 +28,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"os"
 	clog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )

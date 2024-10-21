@@ -27,8 +27,9 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/kubernetes/fake"
 	"testing"
+
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
