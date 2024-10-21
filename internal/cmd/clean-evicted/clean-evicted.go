@@ -50,7 +50,7 @@ func NewCommand() *cobra.Command {
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
-				logger.FromContext(ctx).Error(err, "failed to create clnt")
+				logger.FromContext(ctx).Error(err, "failed to create clientset")
 				return err
 			}
 			return cleanEvictedPods(cmd.Context(), clnt, opts.Namespace())

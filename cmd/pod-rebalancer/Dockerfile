@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as BUILD
+FROM golang:1.22-alpine as BUILD
 
 RUN mkdir -p /build /dist
 COPY . /build/
