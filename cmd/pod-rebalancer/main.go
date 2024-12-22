@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
