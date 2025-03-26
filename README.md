@@ -2,7 +2,7 @@
 Simple watchdogs for Kubernetes
 
 ## Evicted Pod Cleaner
-This CronJos cleans "Evicted" pods.
+This CronJob cleans "Evicted" pods.
 
 ### Installation
 ```
@@ -19,3 +19,29 @@ kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/pod-
 
 ### Limitation
 Ignores pods with affinity or tolerations.
+
+## Watchdogs CLI
+Watchdogs CLI provides utility commands for Kubernetes maintenance.
+
+### Usage
+```
+watchdogs [command]
+```
+
+Available Commands:
+- `clean-evicted`: Clean evicted pods
+- `rebalance-pods`: Rebalance pods across nodes
+- `delete-oldest`: Delete oldest pods in a namespace
+- `restart-deploy`: Restart deployment
+- `restart-sts`: Restart statefulset
+
+### Examples
+Restart a Deployment:
+```
+watchdogs restart-deploy -n default my-deployment
+```
+
+Restart a StatefulSet:
+```
+watchdogs restart-sts -n default my-statefulset
+```

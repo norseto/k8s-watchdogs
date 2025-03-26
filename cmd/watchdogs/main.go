@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2024 Norihiro Seto
+Copyright (c) 2025 Norihiro Seto
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@ import (
 	docmd "github.com/norseto/k8s-watchdogs/internal/cmd/delete-oldest"
 	rpcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	rdcmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-deploy"
+	rscmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-sts"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
@@ -57,6 +58,7 @@ func main() {
 		rpcmd.NewCommand(),
 		docmd.NewCommand(),
 		rdcmd.NewCommand(),
+		rscmd.NewCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
