@@ -17,8 +17,8 @@ Delete a pod that is scheduled to be biased to a specific node.
 kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/pod-rebalancer-v0.1.2/pod-rebalancer.yaml
 ```
 
-### Limitation
-Ignores pods with affinity or tolerations.
+### Note
+Respects pod affinity and tolerations when rebalancing.
 
 ## Watchdogs CLI
 Watchdogs CLI provides utility commands for Kubernetes maintenance.

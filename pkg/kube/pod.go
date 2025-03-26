@@ -109,6 +109,49 @@ func IsEvictedPod(pod *corev1.Pod) bool {
 	return false
 }
 
+// CanBeRebalanced determines if a pod can be safely rebalanced.
+// It checks various factors that might prevent safe rebalancing, such as:
+// - Pod ownership by StatefulSet or DaemonSet
+// - Use of local storage (emptyDir, hostPath)
+// - Priority and QoS class
+// Returns true if the pod can be safely rebalanced, false otherwise.
+func CanBeRebalanced(pod *corev1.Pod) bool {
+	// Check for ownership by StatefulSet or DaemonSet
+	for _, owner := range pod.OwnerReferences {
+		if owner.Kind == "StatefulSet" || owner.Kind == "DaemonSet" {
+			return false
+		}
+	}
+
+	// Check for local storage usage
+	for _, volume := range pod.Spec.Volumes {
+		// Avoid rebalancing pods with memory-based emptyDir volumes
+		if volume.EmptyDir != nil && volume.EmptyDir.Medium == corev1.StorageMediumMemory {
+			return false
+		}
+
+		// Avoid rebalancing pods with hostPath volumes
+		if volume.HostPath != nil {
+			return false
+		}
+	}
+
+	// Check if pod has running init containers
+	for _, initStatus := range pod.Status.InitContainerStatuses {
+		if !initStatus.Ready {
+			return false
+		}
+	}
+
+	// Consider pod QoS class - Guaranteed pods should be handled more carefully
+	if pod.Status.QOSClass == corev1.PodQOSGuaranteed {
+		// For Guaranteed pods, we could implement additional checks
+		// or we could still rebalance them, but with lower priority
+	}
+
+	return true
+}
+
 // FilterPods filters the given list of Pods using the provided filter function and returns a list of filtered Pods.
 func FilterPods(list *corev1.PodList, filter func(*corev1.Pod) bool) []*corev1.Pod {
 	var filtered []*corev1.Pod

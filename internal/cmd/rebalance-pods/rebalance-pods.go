@@ -153,6 +153,10 @@ func getCandidatePods(ctx context.Context, client kubernetes.Interface, ns strin
 		if !kube.IsPodReadyRunning(po) {
 			continue
 		}
+		// Skip pods that cannot be safely rebalanced
+		if !kube.CanBeRebalanced(&po) {
+			continue
+		}
 		for _, rs := range replicas {
 			if !kube.IsPodOwnedBy(rs, &po) {
 				continue
