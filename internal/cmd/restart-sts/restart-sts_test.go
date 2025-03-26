@@ -28,7 +28,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +36,10 @@ import (
 	ktesting "k8s.io/client-go/testing"
 )
 
+// Common context used in tests
+var testCtx = context.TODO()
+
 func TestRestartStatefulSet(t *testing.T) {
-	ctx := logger.WithContext(context.Background(), logger.InitLogger())
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-sts",
@@ -53,7 +54,7 @@ func TestRestartStatefulSet(t *testing.T) {
 		return false, nil, nil
 	})
 
-	err := restartStatefulSet(ctx, client, "default", []string{"test-sts"})
+	err := restartStatefulSet(testCtx, client, "default", []string{"test-sts"})
 	assert.NoError(t, err)
 	assert.True(t, patchCalled, "Expected patch to be called")
 }
@@ -61,4 +62,56 @@ func TestRestartStatefulSet(t *testing.T) {
 func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
 	assert.Equal(t, "restart-sts", cmd.Use)
+
+	// Verify --all flag exists
+	allFlag := cmd.Flag("all")
+	assert.NotNil(t, allFlag, "Expected --all flag to exist")
+	assert.Equal(t, "a", allFlag.Shorthand, "Expected shorthand for --all to be -a")
+}
+
+func TestRestartAllStatefulSets(t *testing.T) {
+	// Use common context
+	ctx := testCtx
+
+	// Create mock client with multiple statefulsets
+	sts1 := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "statefulset-1",
+			Namespace: "default",
+		},
+	}
+	sts2 := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "statefulset-2",
+			Namespace: "default",
+		},
+	}
+
+	mockClient := fake.NewSimpleClientset(sts1, sts2)
+
+	// Track if patch was called for each statefulset
+	patchCalls := make(map[string]bool)
+	mockClient.PrependReactor("patch", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+		patchAction := action.(ktesting.PatchAction)
+		name := patchAction.GetName()
+		patchCalls[name] = true
+		return false, nil, nil
+	})
+
+	// Test restarting all statefulsets
+	t.Run("restart all statefulsets", func(t *testing.T) {
+		err := restartAllStatefulSets(ctx, mockClient, "default")
+		assert.NoError(t, err, "Expected no error when restarting all statefulsets")
+
+		// Verify both statefulsets were patched
+		assert.True(t, patchCalls["statefulset-1"], "Expected statefulset-1 to be restarted")
+		assert.True(t, patchCalls["statefulset-2"], "Expected statefulset-2 to be restarted")
+	})
+
+	// Test empty namespace (no statefulsets)
+	t.Run("no statefulsets in namespace", func(t *testing.T) {
+		emptyClient := fake.NewSimpleClientset()
+		err := restartAllStatefulSets(ctx, emptyClient, "empty")
+		assert.NoError(t, err, "Expected no error when no statefulsets exist")
+	})
 }

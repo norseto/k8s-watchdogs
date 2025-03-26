@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2019-2024 Norihiro Seto
+Copyright (c) 2019-2025 Norihiro Seto
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -40,30 +40,87 @@ import (
 // NewCommand returns a new Cobra command for re-balancing pods.
 func NewCommand() *cobra.Command {
 	opts := &options.Options{}
+	var allDeployments bool
+
 	cmd := &cobra.Command{
 		Use:   "restart-deploy",
 		Short: "Restart deployment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) < 1 {
-				_ = cmd.Usage()
-				return nil
-			}
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return err
 			}
-			return restartDeployment(cmd.Context(), clnt, opts.Namespace(), args)
+
+			if allDeployments {
+				return restartAllDeployments(ctx, clnt, opts.Namespace())
+			}
+
+			if len(args) < 1 {
+				_ = cmd.Usage()
+				return nil
+			}
+			return restartDeployment(ctx, clnt, opts.Namespace(), args)
 		},
-		Args: cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if allDeployments {
+				return nil
+			}
+			if len(args) < 1 {
+				return fmt.Errorf("requires at least one deployment name or --all flag")
+			}
+			return nil
+		},
 	}
 	opts.BindCommonFlags(cmd)
+	cmd.Flags().BoolVarP(&allDeployments, "all", "a", false, "Restart all deployments in the namespace")
 
 	return cmd
 }
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;update
+
+// restartAllDeployments restarts all deployments in the specified namespace
+func restartAllDeployments(ctx context.Context, client kubernetes.Interface, namespace string) error {
+	log := logger.FromContext(ctx)
+	log.Info("Restarting all deployments", "namespace", namespace)
+
+	// List all deployments in the namespace
+	deployments, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Error(err, "failed to list deployments", "namespace", namespace)
+		return err
+	}
+
+	if len(deployments.Items) == 0 {
+		log.Info("No deployments found", "namespace", namespace)
+		return nil
+	}
+
+	log.Info("Found deployments to restart", "count", len(deployments.Items))
+
+	// Restart each deployment
+	errors := 0
+	for _, dep := range deployments.Items {
+		deploymentCopy := dep.DeepCopy()
+		err = kube.RestartDeployment(ctx, client, deploymentCopy)
+		if err != nil {
+			log.Error(err, "failed to restart deployment", "deployment", dep.Name)
+			errors++
+			// Continue to restart other deployments even if one fails
+			continue
+		}
+		log.Info("Restarted deployment", "deployment", dep.Name)
+	}
+
+	if errors > 0 {
+		return fmt.Errorf("failed to restart %d deployments", errors)
+	}
+
+	log.Info("Successfully restarted all deployments", "count", len(deployments.Items))
+	return nil
+}
 
 func restartDeployment(ctx context.Context, client kubernetes.Interface, namespace string, targets []string) error {
 	log := logger.FromContext(ctx)
@@ -82,6 +139,7 @@ func restartDeployment(ctx context.Context, client kubernetes.Interface, namespa
 				fmt.Sprintf("%s/%s", namespace, target))
 			return err
 		}
+		log.Info("Restarted deployment", "deployment", target)
 	}
 	return nil
 }

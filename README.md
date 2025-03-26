@@ -41,7 +41,25 @@ Restart a Deployment:
 watchdogs restart-deploy -n default my-deployment
 ```
 
+Restart all Deployments in a namespace:
+```
+watchdogs restart-deploy -n default --all
+```
+or
+```
+watchdogs restart-deploy -n default -a
+```
+
 Restart a StatefulSet:
 ```
 watchdogs restart-sts -n default my-statefulset
+```
+
+Restart all StatefulSets in a namespace:
+```
+watchdogs restart-sts -n default --all
+```
+or
+```
+watchdogs restart-sts -n default -a
 ```
