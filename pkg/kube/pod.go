@@ -29,6 +29,8 @@ import (
 	"fmt"
 
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
+
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +39,14 @@ import (
 
 const (
 	reasonEvicted = "Evicted"
+)
+
+// Kind constants derived from Kubernetes API types
+var (
+	// KindStatefulSet is the kind value for StatefulSet resources
+	KindStatefulSet = (&appsv1.StatefulSet{}).GetObjectKind().GroupVersionKind().Kind
+	// KindDaemonSet is the kind value for DaemonSet resources
+	KindDaemonSet = (&appsv1.DaemonSet{}).GetObjectKind().GroupVersionKind().Kind
 )
 
 // IsPodReadyRunning checks if a given Pod is both ready and running.
@@ -118,7 +128,7 @@ func IsEvictedPod(pod *corev1.Pod) bool {
 func CanBeRebalanced(pod *corev1.Pod) bool {
 	// Check for ownership by StatefulSet or DaemonSet
 	for _, owner := range pod.OwnerReferences {
-		if owner.Kind == "StatefulSet" || owner.Kind == "DaemonSet" {
+		if owner.Kind == KindStatefulSet || owner.Kind == KindDaemonSet {
 			return false
 		}
 	}
