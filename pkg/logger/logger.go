@@ -41,13 +41,16 @@ import (
 func InitLogger() logr.Logger {
 	opts := zap.Options{
 		Development: false,
+		// LogLevel and StackTraceLevel are set via flags
 	}
 	opts.BindFlags(flag.CommandLine)
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
-	return zap.New(zap.UseFlagOptions(&opts))
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	logger.V(1).Info("Logger initialized")
+	return logger
 }
 
 // InitCmdLogger setup callback that initializes the logger configuration.
