@@ -1,0 +1,20 @@
+FROM golang:1.24-alpine AS build
+
+RUN mkdir -p /build /dist
+COPY . /build/
+WORKDIR /build
+
+ENV CGO_ENABLED=0
+RUN go install github.com/Songmu/gocredits/cmd/gocredits@latest \
+	&& gocredits --skip-missing . > /dist/CREDITS \
+	&& go mod download \
+	&& go vet cmd/watchdogs/*.go \
+	&& CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /build/watchdogs cmd/watchdogs/*.go \
+	&& cp watchdogs /dist \
+	&& cp LICENSE /dist \
+	;
+
+FROM gcr.io/distroless/static-debian11
+WORKDIR /
+COPY --from=BUILD /dist /
+CMD ["/watchdogs"]
