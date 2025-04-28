@@ -1,3 +1,5 @@
+# Image URL to use all building/pushing image targets
+IMG ?= k8s-watchdogs:latest
 .PHONY: test
 test: fmt vet ## Run tests.
 	go test ./... -coverprofile cover.out
@@ -29,3 +31,10 @@ controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessar
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: docker-buildx-setup
+docker-buildx-setup: ## Setup buildx builder for multi-arch builds.
+	docker buildx create --use --name multiarch-builder || true
+.PHONY: docker-buildx
+docker-buildx: docker-buildx-setup ## Build and push docker image for multiple architectures using buildx.
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMG) .

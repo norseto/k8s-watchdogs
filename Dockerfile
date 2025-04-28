@@ -14,7 +14,8 @@ RUN go install github.com/Songmu/gocredits/cmd/gocredits@latest \
 	&& cp LICENSE /dist \
 	;
 
-FROM gcr.io/distroless/static-debian11
+FROM gcr.io/distroless/static-debian12
 WORKDIR /
-COPY --from=BUILD /dist /
+COPY --from=BUILD --chown=65534:65534 /dist /
+USER 65534
 CMD ["/watchdogs"]
