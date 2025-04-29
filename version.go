@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package oci_lb_controller
+package k8s_watchdogs
 
 var Version = RELEASE_VERSION
 
