@@ -43,8 +43,9 @@ func NewCommand() *cobra.Command {
 	var allDeployments bool
 
 	cmd := &cobra.Command{
-		Use:   "restart-deploy",
-		Short: "Restart deployment",
+		Use:   "restart-deploy [deployment-name|--all]",
+		Short: "Restart deployments by name or all with --all",
+		Long:  "Restart one or more deployments by specifying deployment-name(s), or use --all to restart all in the namespace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))

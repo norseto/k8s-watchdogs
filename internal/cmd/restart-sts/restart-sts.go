@@ -43,8 +43,9 @@ func NewCommand() *cobra.Command {
 	var allStatefulSets bool
 
 	cmd := &cobra.Command{
-		Use:   "restart-sts",
-		Short: "Restart statefulset",
+		Use:   "restart-sts [statefulset-name|--all]",
+		Short: "Restart statefulsets by name or all with --all",
+		Long:  "Restart one or more statefulsets by specifying statefulset-name(s), or use --all to restart all in the namespace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))
