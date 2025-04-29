@@ -45,10 +45,10 @@ func TestNewCommand(t *testing.T) {
 		cmd := NewCommand()
 
 		// Check command usage
-		assert.Equal(t, "restart-deploy", cmd.Use)
+		assert.Equal(t, "restart-deploy [deployment-name|--all]", cmd.Use)
 
 		// Check subcommand
-		assert.Equal(t, "Restart deployment", cmd.Short)
+		assert.Equal(t, "Restart deployments by name or all with --all", cmd.Short)
 
 		// Verify --all flag exists
 		allFlag := cmd.Flag("all")
