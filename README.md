@@ -1,65 +1,98 @@
 # k8s-watchdogs
-Simple watchdogs for Kubernetes
-
-## Evicted Pod Cleaner
-This CronJob cleans "Evicted" pods.
+Simple watchdogs tools for Kubernetes
 
 ### Installation
 ```
-kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/evicted-cleaner-v0.1.2/evicted-cleaner.yaml
+kubectl kustomize https://github.com/norseto/k8s-watchdogs/config/watchdogs > watchdogs.yaml
 ```
-
-## Pod Rebalancer
-Delete a pod that is scheduled to be biased to a specific node.
-
-### Installation
-```
-kubectl apply -f https://github.com/norseto/k8s-watchdogs/releases/download/pod-rebalancer-v0.1.2/pod-rebalancer.yaml
-```
-
-### Note
-Respects pod affinity and tolerations when rebalancing.
-
-## Watchdogs CLI
-Watchdogs CLI provides utility commands for Kubernetes maintenance.
+And edit the configuration in the CronJob.
 
 ### Usage
 ```
-watchdogs [command]
-```
+Kubernetes utilities that can cleanup evicted pod, re-balance pod or restart deployment and so on
+
+Usage:
+  watchdogs [flags]
+  watchdogs [command]
 
 Available Commands:
-- `clean-evicted`: Clean evicted pods
-- `rebalance-pods`: Rebalance pods across nodes
-- `delete-oldest`: Delete oldest pods in a namespace
-- `restart-deploy`: Restart deployment
-- `restart-sts`: Restart statefulset
+  clean-evicted  Clean evicted pods
+  completion     Generate the autocompletion script for the specified shell
+  delete-oldest  Delete oldest pod(s)
+  help           Help about any command
+  rebalance-pods Delete bias scheduled pods
+  restart-deploy Restart deployments by name or all with --all
+  restart-sts    Restart statefulsets by name or all with --all
 
-### Examples
-Restart a Deployment:
-```
-watchdogs restart-deploy -n default my-deployment
-```
-
-Restart all Deployments in a namespace:
-```
-watchdogs restart-deploy -n default --all
-```
-or
-```
-watchdogs restart-deploy -n default -a
+Flags:
+  -h, --help   help for watchdogs
 ```
 
-Restart a StatefulSet:
+### clean-evicted
 ```
-watchdogs restart-sts -n default my-statefulset
+watchdogs clean-evicted --help
+Clean evicted pods
+
+Usage:
+  watchdogs clean-evicted [flags]
+
+Flags:
+  -h, --help               help for clean-evicted
+  -n, --namespace string   namespace
 ```
 
-Restart all StatefulSets in a namespace:
+### delete-oldest
 ```
-watchdogs restart-sts -n default --all
+watchdogs delete-oldest --help
+Delete oldest pod(s)
+
+Usage:
+  watchdogs delete-oldest [flags]
+
+Flags:
+  -h, --help               help for delete-oldest
+  -m, --minPods int        Min pods required. (default 3)
+  -n, --namespace string   namespace
+  -p, --prefix string      Pod name prefix to delete.
 ```
-or
+
+### rebalance-pods
 ```
-watchdogs restart-sts -n default -a
+watchdogs rebalance-pods --help
+Delete bias scheduled pods
+
+Usage:
+  watchdogs rebalance-pods [flags]
+
+Flags:
+  -h, --help               help for rebalance-pods
+  -n, --namespace string   namespace
+```
+
+### restart-deploy
+```
+watchdogs restart-deploy --help
+Restart one or more deployments by specifying deployment-name(s), or use --all to restart all in the namespace.
+
+Usage:
+  watchdogs restart-deploy [deployment-name|--all] [flags]
+
+Flags:
+  -a, --all                Restart all deployments in the namespace
+  -h, --help               help for restart-deploy
+  -n, --namespace string   namespace
+```
+
+### restart-sts
+```
+watchdogs restart-sts --help
+Restart one or more statefulsets by specifying statefulset-name(s), or use --all to restart all in the namespace.
+
+Usage:
+  watchdogs restart-sts [statefulset-name|--all] [flags]
+
+Flags:
+  -a, --all                Restart all statefulsets in the namespace
+  -h, --help               help for restart-sts
+  -n, --namespace string   namespace
 ```
