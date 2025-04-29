@@ -54,7 +54,7 @@ func InitLogger() logr.Logger {
 }
 
 // InitCmdLogger setup callback that initializes the logger configuration.
-func InitCmdLogger(rootCmd *cobra.Command) {
+func InitCmdLogger(rootCmd *cobra.Command, callback ...func(cmd *cobra.Command, args []string)) {
 	opts := zap.Options{
 		Development: false,
 	}
@@ -63,6 +63,11 @@ func InitCmdLogger(rootCmd *cobra.Command) {
 		key := "cmd"
 		setupLogger(&opts, cmd)
 		ctx := cmd.Context()
+
+		for _, f := range callback {
+			f(cmd, args)
+		}
+
 		logger := FromContext(ctx, key, makeCmdValue(cmd))
 		logger.V(1).Info("Starting..")
 		cmd.SetContext(WithContext(ctx, logger))

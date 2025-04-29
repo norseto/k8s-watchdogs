@@ -1,5 +1,9 @@
 # Image URL to use all building/pushing image targets
 IMG ?= k8s-watchdogs:latest
+MODULE_PACKAGE=github.com/norseto/k8s-watchdogs
+GITSHA := $(shell git describe --always)
+LDFLAGS := -ldflags=all=
+
 .PHONY: test
 test: fmt vet ## Run tests.
 	go test ./... -coverprofile cover.out
@@ -37,4 +41,15 @@ docker-buildx-setup: ## Setup buildx builder for multi-arch builds.
 	docker buildx create --use --name multiarch-builder || true
 .PHONY: docker-buildx
 docker-buildx: docker-buildx-setup ## Build and push docker image for multiple architectures using buildx.
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t $(IMG) .
+	docker buildx build  --build-arg MODULE_PACKAGE=$(MODULE_PACKAGE) --build-arg GITVERSION=$(GITSHA) --platform linux/amd64,linux/arm64 --push -t $(IMG) .
+.PHONY: docker-build
+docker-build:
+	docker build  --build-arg MODULE_PACKAGE=$(MODULE_PACKAGE) --build-arg GITVERSION=$(GITSHA) -t $(IMG) .
+
+.PHONY: build
+build: vet ## Build manager binary.
+	go build $(LDFLAGS)"-X $(MODULE_PACKAGE).GitVersion=$(GITSHA)" -o bin/k8s-watchdogs cmd/watchdogs/main.go
+
+.PHONY: run
+run: vet ## Run a controller from your host.
+	go run $(LDFLAGS)"-X $(MODULE_PACKAGE).GitVersion=$(GITSHA)" ./cmd/watchdogs/main.go

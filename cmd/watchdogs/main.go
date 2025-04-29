@@ -28,6 +28,7 @@ import (
 	"context"
 	"os"
 
+	watchdogs "github.com/norseto/k8s-watchdogs"
 	cecmd "github.com/norseto/k8s-watchdogs/internal/cmd/clean-evicted"
 	docmd "github.com/norseto/k8s-watchdogs/internal/cmd/delete-oldest"
 	rpcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
@@ -51,7 +52,9 @@ func main() {
 		},
 	}
 	rootCmd.SetContext(ctx)
-	logger.InitCmdLogger(rootCmd)
+	logger.InitCmdLogger(rootCmd, func(cmd *cobra.Command, args []string) {
+		logger.FromContext(cmd.Context()).Info("Starting watchdogs", "version", watchdogs.RELEASE_VERSION, "GitVersion", watchdogs.GitVersion)
+	})
 	opts.BindPFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(
 		cecmd.NewCommand(),

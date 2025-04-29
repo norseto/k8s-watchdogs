@@ -107,13 +107,14 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {
-			log.Info("Rebalanced", "rs", name)
+			log.V(1).Info("Rebalanced", "rs", name)
 			numRebalanced++
 		} else {
 			log.V(1).Info("No need to rebalance", "rs", name)
 		}
 	}
 
+	log.Info("Rebalanced replicasets", "count", numRebalanced)
 	return nil
 }
 

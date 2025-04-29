@@ -1,5 +1,8 @@
 FROM golang:1.24-alpine AS build
 
+ARG GITVERSION
+ARG MODULE_PACKAGE
+
 RUN mkdir -p /build /dist
 COPY . /build/
 WORKDIR /build
@@ -9,7 +12,7 @@ RUN go install github.com/Songmu/gocredits/cmd/gocredits@latest \
 	&& gocredits --skip-missing . > /dist/CREDITS \
 	&& go mod download \
 	&& go vet cmd/watchdogs/*.go \
-	&& CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /build/watchdogs cmd/watchdogs/*.go \
+	&& CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags=all="-X ${MODULE_PACKAGE}.GitVersion=${GITVERSION}" -o /build/watchdogs cmd/watchdogs/*.go \
 	&& cp watchdogs /dist \
 	&& cp LICENSE /dist \
 	;
