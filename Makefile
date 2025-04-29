@@ -14,7 +14,7 @@ vet: ## Run go vet against code.
 
 .PHONY: roles
 roles: controller-gen
-	$(LOCALBIN)/controller-gen rbac:roleName=k8s-watchdogs-role paths=./... output:dir=config/watchdogs/rbac/
+	$(LOCALBIN)/controller-gen rbac:roleName=k8s-watchdogs-role paths=./... output:dir=config/watchdogs
 
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):

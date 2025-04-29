@@ -1,0 +1,21 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  namespace: k8s-watchdogs
+  name: k8s-watchdogs
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: k8s-watchdogs-sa
+          containers:
+          - name: k8s-watchdogs
+            image: k8s-watchdogs
+            imagePullPolicy: IfNotPresent
+            command: ["/watchdogs"]
+          restartPolicy: OnFailure
+          activeDeadlineSeconds: 60
