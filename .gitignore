@@ -72,5 +72,6 @@ Temporary Items
 !.vscode/Readme.md
 
 .idea
+*.bak
 
 bin/

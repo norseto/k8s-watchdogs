@@ -51,7 +51,5 @@ fi
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BASE_DIR=${SCRIPT_DIR}/..
 
-sed -i.bak -e "s@newTag:[[:space:]]*v${CURRENT_VERSION}@newTag: v${NEW_VERSION}@g" ${BASE_DIR}/config/manager/kustomization.yaml
+sed -i.bak -e "s@newTag:[[:space:]]*v${CURRENT_VERSION}@newTag: v${NEW_VERSION}@g" ${BASE_DIR}/config/watchdogs/kustomization.yaml
 sed -i.bak -e "s@RELEASE_VERSION[[:space:]]*=[[:space:]]*\"${CURRENT_VERSION}\"@RELEASE_VERSION = \"${NEW_VERSION}\"@g" ${BASE_DIR}/version.go
-
-make build-installer IMG=norseto/oci-lb-registrar:v$(hack/get-version.sh)
