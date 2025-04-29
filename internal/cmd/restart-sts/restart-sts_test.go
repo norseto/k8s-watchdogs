@@ -61,7 +61,7 @@ func TestRestartStatefulSet(t *testing.T) {
 
 func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
-	assert.Equal(t, "restart-sts", cmd.Use)
+	assert.Equal(t, "restart-sts [statefulset-name|--all]", cmd.Use)
 
 	// Verify --all flag exists
 	allFlag := cmd.Flag("all")
