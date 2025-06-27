@@ -96,3 +96,7 @@ Flags:
   -h, --help               help for restart-sts
   -n, --namespace string   namespace
 ```
+
+### Contribution Guide
+For a short introduction to the repository layout and development workflow, see [docs/code_overview.md](docs/code_overview.md).
+
