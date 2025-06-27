@@ -76,8 +76,10 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 	evictedPods := kube.FilterPods(pods, kube.IsEvictedPod)
 
 	deleted := 0
+	var errs []error
 	for _, pod := range evictedPods {
 		if err := kube.DeletePod(ctx, client, *pod); err != nil {
+			errs = append(errs, err)
 			log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		} else {
 			deleted++
@@ -85,5 +87,8 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 	}
 
 	log.Info("pods delete result", "deleted", deleted, "evicted", len(evictedPods))
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to delete %d pods", len(errs))
+	}
 	return nil
 }

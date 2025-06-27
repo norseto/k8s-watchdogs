@@ -101,20 +101,20 @@ func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespac
 }
 
 func pickOldest(prefix string, min int, pods []corev1.Pod) (*corev1.Pod, error) {
-	var oldest corev1.Pod
+	var oldest *corev1.Pod
 	count := 0
-	for _, p := range pods {
-		if !kube.IsPodReadyRunning(p) || !strings.HasPrefix(p.Name, prefix) {
+	for i := range pods {
+		p := &pods[i]
+		if !kube.IsPodReadyRunning(*p) || !strings.HasPrefix(p.Name, prefix) {
 			continue
 		}
-		if oldest.Status.StartTime == nil ||
-			oldest.Status.StartTime.Time.After(p.Status.StartTime.Time) {
+		if oldest == nil || oldest.Status.StartTime.Time.After(p.Status.StartTime.Time) {
 			oldest = p
 		}
 		count++
 	}
-	if count >= min {
-		return &oldest, nil
+	if count < min {
+		return nil, errors.Errorf("Found only %v pods. Should at least %v pods running.", count, min)
 	}
-	return nil, errors.Errorf("Found only %v pods. Should at least %v pods running.", count, min)
+	return oldest, nil
 }

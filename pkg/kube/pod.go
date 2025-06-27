@@ -51,16 +51,15 @@ var (
 
 // IsPodReadyRunning checks if a given Pod is both ready and running.
 func IsPodReadyRunning(po corev1.Pod) bool {
-	phase := po.Status.Phase
-	if phase != corev1.PodRunning && phase != "" {
+	if po.Status.Phase != corev1.PodRunning {
 		return false
 	}
-	for _, c := range po.Status.ContainerStatuses {
-		if !c.Ready {
-			return false
+	for _, c := range po.Status.Conditions {
+		if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // GetPodRequestResources calculates the maximum CPU and memory resources requested by the containers in a given PodSpec.

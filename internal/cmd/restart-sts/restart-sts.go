@@ -102,21 +102,20 @@ func restartAllStatefulSets(ctx context.Context, client kubernetes.Interface, na
 	log.Info("Found statefulsets to restart", "count", len(statefulsets.Items))
 
 	// Restart each statefulset
-	errors := 0
+	var errorStatefulSets []string
 	for _, sts := range statefulsets.Items {
 		statefulsetCopy := sts.DeepCopy()
 		err = kube.RestartStatefulSet(ctx, client, statefulsetCopy)
 		if err != nil {
 			log.Error(err, "failed to restart statefulset", "statefulset", sts.Name)
-			errors++
-			// Continue to restart other statefulsets even if one fails
+			errorStatefulSets = append(errorStatefulSets, sts.Name)
 			continue
 		}
 		log.Info("Restarted statefulset", "statefulset", sts.Name)
 	}
 
-	if errors > 0 {
-		return fmt.Errorf("failed to restart %d statefulsets", errors)
+	if len(errorStatefulSets) > 0 {
+		return fmt.Errorf("failed to restart statefulsets: %v", errorStatefulSets)
 	}
 
 	log.Info("Successfully restarted all statefulsets", "count", len(statefulsets.Items))

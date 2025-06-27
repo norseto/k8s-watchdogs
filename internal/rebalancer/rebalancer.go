@@ -158,13 +158,6 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 
 	for i := 0; i < maxDel; i++ {
 		node, num := r.getNodeWithMaxPods()
-		for _, n := range r.current.Nodes {
-			capacity, err := kube.GetNodeResourceCapacity(n)
-			if err != nil {
-				return deleted > 0, fmt.Errorf("failed to get Node capacity: %v", err)
-			}
-			logger.FromContext(ctx).V(1).Info("node capacity", "node", n.Name, "capacity", capacity)
-		}
 		if num < 1 {
 			return deleted > 0, nil
 		}

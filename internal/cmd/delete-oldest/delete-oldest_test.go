@@ -35,15 +35,24 @@ import (
 
 func TestDeleteOldestPods(t *testing.T) {
 	ctx := context.Background()
+	now := metav1.Now()
 	client := fake.NewSimpleClientset(&corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod-1",
-			Namespace: "test-ns",
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pod-1", Namespace: "test-ns"},
+		Status: corev1.PodStatus{
+			StartTime: &metav1.Time{Time: now.Add(-10)},
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+			Phase: corev1.PodRunning,
 		},
 	}, &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod-2",
-			Namespace: "test-ns",
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pod-2", Namespace: "test-ns"},
+		Status: corev1.PodStatus{
+			StartTime: &metav1.Time{Time: now.Add(-20)},
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+			},
+			Phase: corev1.PodRunning,
 		},
 	})
 	err := deleteOldestPods(ctx, client, "test-ns", "test", 3)
@@ -61,47 +70,60 @@ func TestDeleteOldestPods(t *testing.T) {
 }
 
 func TestPickOldest(t *testing.T) {
+	now := metav1.Now()
 	pods := []corev1.Pod{
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-pod-1",
-			},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod-1"},
 			Status: corev1.PodStatus{
-				StartTime: &metav1.Time{},
+				StartTime: &metav1.Time{Time: now.Add(-10)},
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+				},
+				Phase: corev1.PodRunning,
 			},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-pod-2",
-			},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod-2"},
 			Status: corev1.PodStatus{
-				StartTime: &metav1.Time{},
+				StartTime: &metav1.Time{Time: now.Add(-20)},
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+				},
+				Phase: corev1.PodRunning,
 			},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-pod-3",
-			},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod-3"},
 			Status: corev1.PodStatus{
-				StartTime: &metav1.Time{},
+				StartTime: &metav1.Time{Time: now.Add(-30)},
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: corev1.ConditionFalse},
+				},
+				Phase: corev1.PodRunning,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod-4"},
+			Status: corev1.PodStatus{
+				StartTime: &metav1.Time{Time: now.Add(-40)},
+				Conditions: []corev1.PodCondition{
+					{Type: corev1.PodReady, Status: corev1.ConditionTrue},
+				},
+				Phase: corev1.PodPending,
 			},
 		},
 	}
-	pod, err := pickOldest("test", 3, pods)
-	if pod == nil || err != nil {
-		t.Errorf("Expected pod, but got nil or error %v", err)
+	pod, err := pickOldest("test-pod-", 2, pods)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
-	pod, err = pickOldest("test", 4, pods)
-	if pod != nil || err == nil {
-		t.Errorf("Expected error, but got nil or pod %v", pod)
+	if pod.Name != "test-pod-2" {
+		t.Errorf("expected test-pod-2, but got %s", pod.Name)
 	}
-	pod, err = pickOldest("test-pod", 2, pods)
-	if pod == nil || err != nil {
-		t.Errorf("Expected pod, but got nil or error %v", err)
-	}
-	pod, err = pickOldest("test-pod", 4, pods)
-	if pod != nil || err == nil {
-		t.Errorf("Expected error, but got nil or pod %v", pod)
+
+	pod, err = pickOldest("test-pod-", 3, pods)
+	if err == nil {
+		t.Errorf("expected error, but got nil")
 	}
 }
 

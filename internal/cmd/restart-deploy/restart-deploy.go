@@ -102,21 +102,20 @@ func restartAllDeployments(ctx context.Context, client kubernetes.Interface, nam
 	log.Info("Found deployments to restart", "count", len(deployments.Items))
 
 	// Restart each deployment
-	errors := 0
+	var errorDeployments []string
 	for _, dep := range deployments.Items {
 		deploymentCopy := dep.DeepCopy()
 		err = kube.RestartDeployment(ctx, client, deploymentCopy)
 		if err != nil {
 			log.Error(err, "failed to restart deployment", "deployment", dep.Name)
-			errors++
-			// Continue to restart other deployments even if one fails
+			errorDeployments = append(errorDeployments, dep.Name)
 			continue
 		}
 		log.Info("Restarted deployment", "deployment", dep.Name)
 	}
 
-	if errors > 0 {
-		return fmt.Errorf("failed to restart %d deployments", errors)
+	if len(errorDeployments) > 0 {
+		return fmt.Errorf("failed to restart deployments: %v", errorDeployments)
 	}
 
 	log.Info("Successfully restarted all deployments", "count", len(deployments.Items))

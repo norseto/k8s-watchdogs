@@ -108,10 +108,29 @@ func TestRestartAllStatefulSets(t *testing.T) {
 		assert.True(t, patchCalls["statefulset-2"], "Expected statefulset-2 to be restarted")
 	})
 
-	// Test empty namespace (no statefulsets)
-	t.Run("no statefulsets in namespace", func(t *testing.T) {
-		emptyClient := fake.NewSimpleClientset()
-		err := restartAllStatefulSets(ctx, emptyClient, "empty")
-		assert.NoError(t, err, "Expected no error when no statefulsets exist")
+	// Test case where some statefulsets fail to restart
+	t.Run("some statefulsets fail to restart", func(t *testing.T) {
+		// Reset patch calls
+		patchCalls = make(map[string]bool)
+
+		// Create a new mock client for this test case
+		failingClient := fake.NewSimpleClientset(sts1, sts2)
+		failingClient.PrependReactor("patch", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patchCalls[name] = true
+			if name == "statefulset-2" {
+				return true, nil, assert.AnError
+			}
+			return false, nil, nil
+		})
+
+		err := restartAllStatefulSets(ctx, failingClient, "default")
+		assert.Error(t, err, "Expected an error when some statefulsets fail to restart")
+		assert.Contains(t, err.Error(), "statefulset-2", "Expected error message to contain the name of the failed statefulset")
+
+		// Verify that both statefulsets were attempted to be patched
+		assert.True(t, patchCalls["statefulset-1"], "Expected statefulset-1 to be restarted")
+		assert.True(t, patchCalls["statefulset-2"], "Expected statefulset-2 to be attempted to be restarted")
 	})
 }

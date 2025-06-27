@@ -41,9 +41,9 @@ func TestIsPodReadyRunning(t *testing.T) {
 		pod         corev1.Pod
 		expected    bool
 	}{
-		{"Pod ready and running", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Ready: true}}}}, true},
+		{"Pod ready and running", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}, true},
 		{"Pod not running", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodPending}}, false},
-		{"Pod running but not ready", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Ready: false}}}}, false},
+		{"Pod running but not ready", corev1.Pod{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, false},
 	}
 
 	for _, test := range tests {

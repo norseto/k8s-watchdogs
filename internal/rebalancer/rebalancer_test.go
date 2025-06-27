@@ -202,17 +202,22 @@ func TestRebalance(t *testing.T) {
 	mockClient := fake.NewSimpleClientset(replicaSet, node1, node2, node3, pod1, pod2, pod3)
 
 	// Call the Rebalance function
-	result, err := rebalancer.Rebalance(ctx, mockClient)
+	_, err := rebalancer.Rebalance(ctx, mockClient)
 
 	// Check for any errors
 	if err != nil {
 		t.Errorf("Rebalance returned an error: %v", err)
 	}
 
-	// pod has deleted
-	if !result {
-		t.Errorf("Rebalance should return true")
+	// Check if the pod on the node with the most pods was deleted.
+	deletedPodNode := ""
+	for _, p := range rebalancer.current.PodStatus {
+		if p.deleted {
+			deletedPodNode = p.Pod.Spec.NodeName
+			break
+		}
 	}
+	assert.Equal(t, "node-2", deletedPodNode, "Pod on node-2 should be deleted")
 }
 
 func TestDeletePodOnNode(t *testing.T) {

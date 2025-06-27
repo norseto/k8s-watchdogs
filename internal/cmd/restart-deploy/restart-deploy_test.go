@@ -125,10 +125,29 @@ func TestRestartAllDeployments(t *testing.T) {
 		assert.True(t, patchCalls["deployment-2"], "Expected deployment-2 to be restarted")
 	})
 
-	// Test empty namespace (no deployments)
-	t.Run("no deployments in namespace", func(t *testing.T) {
-		emptyClient := fake.NewSimpleClientset()
-		err := restartAllDeployments(ctx, emptyClient, "empty")
-		assert.NoError(t, err, "Expected no error when no deployments exist")
+	// Test case where some deployments fail to restart
+	t.Run("some deployments fail to restart", func(t *testing.T) {
+		// Reset patch calls
+		patchCalls = make(map[string]bool)
+
+		// Create a new mock client for this test case
+		failingClient := fake.NewSimpleClientset(deployment1, deployment2)
+		failingClient.PrependReactor("patch", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patchCalls[name] = true
+			if name == "deployment-2" {
+				return true, nil, assert.AnError
+			}
+			return false, nil, nil
+		})
+
+		err := restartAllDeployments(ctx, failingClient, "default")
+		assert.Error(t, err, "Expected an error when some deployments fail to restart")
+		assert.Contains(t, err.Error(), "deployment-2", "Expected error message to contain the name of the failed deployment")
+
+		// Verify that both deployments were attempted to be patched
+		assert.True(t, patchCalls["deployment-1"], "Expected deployment-1 to be restarted")
+		assert.True(t, patchCalls["deployment-2"], "Expected deployment-2 to be attempted to be restarted")
 	})
 }

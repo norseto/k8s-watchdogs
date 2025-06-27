@@ -29,19 +29,22 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestCleanEvictedPods(t *testing.T) {
 	tests := []struct {
-		name        string
-		pods        []v1.Pod
-		wantErr     bool
-		wantDeleted int
+		name             string
+		pods             []v1.Pod
+		wantErr          bool
+		wantDeleted      int
+		deleteShouldFail bool
 	}{
 		{
 			name:        "NoPods",
@@ -53,20 +56,12 @@ func TestCleanEvictedPods(t *testing.T) {
 			name: "EvictedPods",
 			pods: []v1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod1", Annotations: map[string]string{"Evicted": "True"}},
-					Status: v1.PodStatus{
-						Phase:   v1.PodFailed,
-						Reason:  "Evicted",
-						Message: "pod was Evicted",
-					},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod1"},
+					Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
 				},
 				{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod2", Annotations: map[string]string{"Evicted": "True"}},
-					Status: v1.PodStatus{
-						Phase:   v1.PodFailed,
-						Reason:  "Evicted",
-						Message: "pod was Evicted",
-					},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod2"},
+					Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
 				},
 			},
 			wantErr:     false,
@@ -76,12 +71,8 @@ func TestCleanEvictedPods(t *testing.T) {
 			name: "MixedPods",
 			pods: []v1.Pod{
 				{
-					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod1", Annotations: map[string]string{"Evicted": "True"}},
-					Status: v1.PodStatus{
-						Phase:   v1.PodFailed,
-						Reason:  "Evicted",
-						Message: "pod was Evicted",
-					},
+					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod1"},
+					Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod2"},
@@ -90,24 +81,45 @@ func TestCleanEvictedPods(t *testing.T) {
 			wantErr:     false,
 			wantDeleted: 1,
 		},
+		{
+			name: "ErrorDeletingPods",
+			pods: []v1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod1"},
+					Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+				},
+			},
+			wantErr:          true,
+			wantDeleted:      0,
+			deleteShouldFail: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset()
-			for _, pod := range tt.pods {
-				fmt.Println(client.CoreV1().Pods("test").Create(context.Background(), &pod, metav1.CreateOptions{}))
-			}
-			err := cleanEvictedPods(context.Background(), client, "test")
-			if (err != nil) != tt.wantErr {
-				t.Errorf("cleanEvictedPods() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			for i := range tt.pods {
+				_, err := client.CoreV1().Pods("test").Create(context.Background(), &tt.pods[i], metav1.CreateOptions{})
+				assert.NoError(t, err)
 			}
 
-			pods, _ := client.CoreV1().Pods("test").List(context.Background(), metav1.ListOptions{})
-			if deleted := len(tt.pods) - len(pods.Items); deleted != tt.wantDeleted {
-				t.Errorf("cleanEvictedPods() deleted = %v, wantDeleted %v", deleted, tt.wantDeleted)
+			if tt.deleteShouldFail {
+				client.PrependReactor("delete", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+					return true, nil, fmt.Errorf("failed to delete pod")
+				})
 			}
+
+			err := cleanEvictedPods(context.Background(), client, "test")
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			pods, err := client.CoreV1().Pods("test").List(context.Background(), metav1.ListOptions{})
+			assert.NoError(t, err)
+
+			assert.Equal(t, len(tt.pods)-tt.wantDeleted, len(pods.Items))
 		})
 	}
 }
