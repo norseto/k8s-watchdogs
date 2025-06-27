@@ -16,8 +16,11 @@
     "ghcr.io/mpriscella/features/kind:1": {},
     "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/rio/features/kustomize:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  },
+    "ghcr.io/norseto/features/codex-cli:0.3.4": { "install-bun": true },
+    "ghcr.io/norseto/features/gemini-cli:0.2.2": { "install-bun": true },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+   },
   // Use 'settings' to set *default* container specific settings.json values on container create.
   // You can edit these settings after create using File > Preferences > Settings > Remote.
   "customizations": {
@@ -35,6 +38,7 @@
     }
   },
 
+  "remoteUser": "vscode",
   "containerEnv": {
     "GOCACHE": "/tmp/gocache"
   },
@@ -47,11 +51,11 @@
   // "postCreateCommand": "go version",
   // Add the IDs of extensions you want installed when the container is created in the array below.
   "mounts": [
-    "type=volume,source=aws-cred,target=/home/vscode/.aws,consistency=delegated",
-    "type=volume,source=oci-k8s-cred,target=/home/vscode/.kube,consistency=delegated",
-    "type=volume,source=go-sdk-1-24,target=/usr/local/go,consistency=delegated", // Updated volume source for Go SDK
-    "type=volume,source=go-path-bin-1-24,target=/go/bin,consistency=delegated", // Updated volume source for Go bin path
-    "type=volume,source=go-path-pkg,target=/go/pkg,consistency=delegated",
-    "type=volume,source=go-cache,target=/tmp/gocache,consistency=delegated"
+    "type=volume,source=vscode-aws-cred,target=/home/vscode/.aws,consistency=delegated",
+    "type=volume,source=vscode-oci-k8s-cred,target=/home/vscode/.kube,consistency=delegated",
+    "type=volume,source=vscode-go-sdk-1-24,target=/usr/local/go,consistency=delegated",
+    "type=volume,source=vscode-go-path-bin-1-24,target=/go/bin,consistency=delegated",
+    "type=volume,source=vscode-go-path-pkg,target=/go/pkg,consistency=delegated",
+    "type=volume,source=vscode-go-cache,target=/tmp/gocache,consistency=delegated"
   ]
 }
