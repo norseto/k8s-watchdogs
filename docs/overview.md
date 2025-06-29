@@ -28,9 +28,47 @@ make test  # execute all unit tests
 
 The binary can be built with `make build`, while `make run` runs the CLI directly.
 
+### Available Commands
+
+* `clean-evicted`
+* `delete-oldest`
+* `rebalance-pods`
+* `restart-deploy`
+* `restart-sts`
+* `version`
+
 ## Running in a Cluster
 
 The `config/watchdogs` directory contains a CronJob manifest. Apply it after building and pushing a container image to your registry. Adjust the schedule and namespace as required.
+
+Example:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: k8s-watchdogs
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: k8s-watchdogs-sa
+          containers:
+          - name: k8s-watchdogs
+            image: k8s-watchdogs
+            command: ["/watchdogs"]
+          restartPolicy: OnFailure
+```
+
+### Logging
+
+Log verbosity can be set via hidden zap flags:
+
+```bash
+watchdogs --zap-log-level=debug
+```
 
 ## Contribution Tips
 

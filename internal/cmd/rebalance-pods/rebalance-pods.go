@@ -49,6 +49,7 @@ import (
 // NewCommand returns a new Cobra command for re-balancing pods.
 func NewCommand() *cobra.Command {
 	opts := &options.Options{}
+	var rate float32
 	cmd := &cobra.Command{
 		Use:   "rebalance-pods",
 		Short: "Delete bias scheduled pods",
@@ -59,10 +60,11 @@ func NewCommand() *cobra.Command {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return err
 			}
-			return rebalancePods(cmd.Context(), clnt, opts.Namespace())
+			return rebalancePods(cmd.Context(), clnt, opts.Namespace(), rate)
 		},
 	}
 	opts.BindCommonFlags(cmd)
+	cmd.Flags().Float32Var(&rate, "rate", .25, "max rebalance rate")
 	return cmd
 }
 
@@ -71,7 +73,7 @@ func NewCommand() *cobra.Command {
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list
 // +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get;list
 
-func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string) error {
+func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string, rate float32) error {
 	log := logger.FromContext(ctx)
 	nodes, err := kube.GetAllNodes(ctx, client)
 	if err != nil {
@@ -103,7 +105,7 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
-		result, err := rebalancer.NewRebalancer(ctx, r).Rebalance(ctx, client)
+		result, err := rebalancer.NewRebalancer(ctx, r, rate).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
 		} else if result {

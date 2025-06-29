@@ -196,7 +196,7 @@ func TestRebalance(t *testing.T) {
 			{Pod: pod3},
 		},
 	}
-	rebalancer := NewRebalancer(ctx, replicaState)
+	rebalancer := NewRebalancer(ctx, replicaState, .25)
 
 	// Create a mock kubernetes.Interface
 	mockClient := fake.NewSimpleClientset(replicaSet, node1, node2, node3, pod1, pod2, pod3)

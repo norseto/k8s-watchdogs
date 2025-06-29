@@ -125,11 +125,10 @@ func toNodeMap(nodes []*corev1.Node) map[string]*corev1.Node {
 	return generics.MakItemMap(nodes, func(node *corev1.Node) string { return node.Name })
 }
 
-// NewRebalancer returns a new instance of the Rebalancer struct with the provided current
-// replica state and a default maxRebalanceRate of 0.25.
-// The Rebalancer struct contains methods for rebalancing pods across Nodes in a Kubernetes cluster.
-func NewRebalancer(ctx context.Context, current *ReplicaState) *Rebalancer {
-	ret := &Rebalancer{current: current, maxRebalanceRate: .25}
+// NewRebalancer returns a new instance of the Rebalancer.
+// The rate argument sets the maximum fraction of replicas deleted during one run.
+func NewRebalancer(ctx context.Context, current *ReplicaState, rate float32) *Rebalancer {
+	ret := &Rebalancer{current: current, maxRebalanceRate: rate}
 	ret.filterSchedulables(ctx)
 	return ret
 }
