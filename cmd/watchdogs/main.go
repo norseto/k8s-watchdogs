@@ -34,6 +34,7 @@ import (
 	rpcmd "github.com/norseto/k8s-watchdogs/internal/cmd/rebalance-pods"
 	rdcmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-deploy"
 	rscmd "github.com/norseto/k8s-watchdogs/internal/cmd/restart-sts"
+	vrcmd "github.com/norseto/k8s-watchdogs/internal/cmd/version"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/spf13/cobra"
@@ -62,6 +63,7 @@ func main() {
 		docmd.NewCommand(),
 		rdcmd.NewCommand(),
 		rscmd.NewCommand(),
+		vrcmd.NewCommand(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

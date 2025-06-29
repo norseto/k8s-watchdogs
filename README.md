@@ -7,6 +7,27 @@ kubectl kustomize https://github.com/norseto/k8s-watchdogs/config/watchdogs > wa
 ```
 And edit the configuration in the CronJob.
 
+Sample CronJob manifest:
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: k8s-watchdogs
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: k8s-watchdogs-sa
+          containers:
+          - name: k8s-watchdogs
+            image: k8s-watchdogs
+            command: ["/watchdogs"]
+          restartPolicy: OnFailure
+```
+
 ### Usage
 ```
 Kubernetes utilities that can cleanup evicted pod, re-balance pod or restart deployment and so on
@@ -23,6 +44,7 @@ Available Commands:
   rebalance-pods Delete bias scheduled pods
   restart-deploy Restart deployments by name or all with --all
   restart-sts    Restart statefulsets by name or all with --all
+  version        Print version information
 
 Flags:
   -h, --help   help for watchdogs
@@ -39,6 +61,13 @@ Usage:
 Flags:
   -h, --help               help for clean-evicted
   -n, --namespace string   namespace
+```
+
+### version
+```
+watchdogs version
+
+Print version information
 ```
 
 ### delete-oldest
@@ -67,6 +96,7 @@ Usage:
 Flags:
   -h, --help               help for rebalance-pods
   -n, --namespace string   namespace
+      --rate float32       max rebalance rate (default 0.25)
 ```
 
 ### restart-deploy
@@ -96,3 +126,9 @@ Flags:
   -h, --help               help for restart-sts
   -n, --namespace string   namespace
 ```
+### Logging
+You can change log verbosity using hidden flags, for example:
+```bash
+watchdogs --zap-log-level=debug
+```
+

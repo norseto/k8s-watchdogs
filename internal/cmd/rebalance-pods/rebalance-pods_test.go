@@ -39,7 +39,7 @@ func TestRebalancePods_NoNodes(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewSimpleClientset()
 
-	err := rebalancePods(ctx, client, "default")
+	err := rebalancePods(ctx, client, "default", .25)
 	assert.NoError(t, err)
 }
 
@@ -52,7 +52,7 @@ func TestRebalancePods_NoReplicaSets(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(testNode)
 
-	err := rebalancePods(ctx, client, "default")
+	err := rebalancePods(ctx, client, "default", .25)
 	assert.NoError(t, err)
 }
 
@@ -117,7 +117,7 @@ func TestRebalancePods_ReplicaSetUnderRollingUpdate(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(testNode, testRS, testPod)
 
-	err := rebalancePods(ctx, client, "default")
+	err := rebalancePods(ctx, client, "default", .25)
 	assert.NoError(t, err)
 }
 
@@ -149,7 +149,7 @@ func TestRebalancePods_PodNotReadyRunning(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(testNode, testRS, testPod)
 
-	err := rebalancePods(ctx, client, "default")
+	err := rebalancePods(ctx, client, "default", .25)
 	assert.NoError(t, err)
 }
 
@@ -191,6 +191,6 @@ func TestRebalancePods_PodNotOwnedByReplicaSet(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(testNode, testRS, testPod)
 
-	err := rebalancePods(ctx, client, "default")
+	err := rebalancePods(ctx, client, "default", .25)
 	assert.NoError(t, err)
 }
