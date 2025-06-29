@@ -40,7 +40,7 @@
 
   "remoteUser": "vscode",
   "containerEnv": {
-    "GOCACHE": "/tmp/gocache"
+    "GOCACHE": "/home/vscode/.gocache"
   },
 
   "postCreateCommand": ". .devcontainer/post-create.sh",
@@ -51,11 +51,11 @@
   // "postCreateCommand": "go version",
   // Add the IDs of extensions you want installed when the container is created in the array below.
   "mounts": [
-    "type=volume,source=vscode-aws-cred,target=/home/vscode/.aws,consistency=delegated",
-    "type=volume,source=vscode-oci-k8s-cred,target=/home/vscode/.kube,consistency=delegated",
-    "type=volume,source=vscode-go-sdk-1-24,target=/usr/local/go,consistency=delegated",
-    "type=volume,source=vscode-go-path-bin-1-24,target=/go/bin,consistency=delegated",
-    "type=volume,source=vscode-go-path-pkg,target=/go/pkg,consistency=delegated",
-    "type=volume,source=vscode-go-cache,target=/tmp/gocache,consistency=delegated"
+    "type=volume,consistency=delegated,source=vscode-aws-cred,target=/home/vscode/.aws",
+    "type=volume,consistency=delegated,source=vscode-oci-k8s-cred,target=/home/vscode/.kube",
+    "type=volume,consistency=delegated,source=vscode-go-sdk-1-24,target=/usr/local/go",
+    "type=volume,consistency=delegated,source=vscode-go-path-bin-1-24,target=/go/bin",
+    "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
+    "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache"
   ]
 }
