@@ -1,2 +1,7 @@
 .devcontainer
 .vscode
+.git
+bin/
+cover.out
+docs/
+hack/
