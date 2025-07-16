@@ -17,5 +17,11 @@ spec:
             image: k8s-watchdogs
             imagePullPolicy: IfNotPresent
             command: ["/watchdogs"]
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 65534
+              seccompProfile:
+                type: RuntimeDefault
+              readOnlyRootFilesystem: true
           restartPolicy: OnFailure
           activeDeadlineSeconds: 60
