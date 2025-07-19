@@ -1,7 +1,13 @@
 .devcontainer
 .vscode
+
+# Exclude version control
 .git
+
+# Build artifacts
 bin/
 cover.out
+
+# Documentation and helper scripts
 docs/
 hack/
