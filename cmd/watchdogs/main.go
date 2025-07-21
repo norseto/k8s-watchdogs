@@ -54,7 +54,8 @@ func main() {
 	}
 	rootCmd.SetContext(ctx)
 	logger.InitCmdLogger(rootCmd, func(cmd *cobra.Command, args []string) {
-		logger.FromContext(cmd.Context()).Info("Starting watchdogs", "version", watchdogs.RELEASE_VERSION, "GitVersion", watchdogs.GitVersion)
+		logger.FromContext(cmd.Context()).Info("Starting watchdogs",
+			"version", watchdogs.RELEASE_VERSION, "GitVersion", watchdogs.GitVersion)
 	})
 	opts.BindPFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(

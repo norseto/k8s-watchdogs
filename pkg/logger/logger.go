@@ -148,7 +148,8 @@ func bindPFlags(o *zap.Options, fs *pflag.FlagSet) {
 		"Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').")
 
 	// Set the time encoding
-	fs.String("zap-time-encoding", "epoch", "Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.")
+	fs.String("zap-time-encoding", "epoch",
+		"Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.")
 
 	_ = fs.MarkHidden("zap-devel")
 	_ = fs.MarkHidden("zap-encoder")

@@ -93,7 +93,8 @@ func WithContext(ctx context.Context, opts *Options) context.Context {
 
 // NewRESTConfig creates a new Kubernetes REST config based on the provided options.
 // It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
-// If the `opts` contains a non-empty kubeconfig file path, it uses `clientcmd.BuildConfigFromFlags` to build the config.
+// If the `opts` contains a non-empty kubeconfig file path,
+// it uses `clientcmd.BuildConfigFromFlags` to build the config.
 // If the config is not specified or there is an error building it, it falls back to using `rest.InClusterConfig`.
 // The function returns the created REST config and an error if there was a failure.
 func NewRESTConfig(opts *Options) (config *rest.Config, err error) {
@@ -123,8 +124,10 @@ func NewClientset(opts *Options) (*kubernetes.Clientset, error) {
 // NewClientsetWithRestConfig creates a new Kubernetes clientset and REST config.
 // It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
 // It returns a `*kubernetes.Clientset`, `*rest.Config`, and an `error` if there was a failure.
-// It utilizes the `NewRESTConfig` function to create the REST config, then uses the REST config to create the clientset.
-// If there was an error creating the REST config or the clientset, an error is returned along with `nil` for the clientset and config.
+// It utilizes the `NewRESTConfig` function to create the REST config,
+// then uses the REST config to create the clientset.
+// If there was an error creating the REST config or the clientset,
+// an error is returned along with `nil` for the clientset and config.
 func NewClientsetWithRestConfig(opts *Options) (*kubernetes.Clientset, *rest.Config, error) {
 	config, err := NewRESTConfig(opts)
 

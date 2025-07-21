@@ -62,7 +62,8 @@ func IsPodReadyRunning(po corev1.Pod) bool {
 	return false
 }
 
-// GetPodRequestResources calculates the maximum CPU and memory resources requested by the containers in a given PodSpec.
+// GetPodRequestResources calculates the maximum CPU and memory resources
+// requested by the containers in a given PodSpec.
 // It iterates over each container in the PodSpec and checks if it has requested resources.
 // If so, it compares the requested CPU and memory
 // with the previously calculated maximums, and updates them if necessary.
@@ -153,10 +154,9 @@ func CanBeRebalanced(pod *corev1.Pod) bool {
 	}
 
 	// Consider pod QoS class - Guaranteed pods should be handled more carefully
-	if pod.Status.QOSClass == corev1.PodQOSGuaranteed {
-		// For Guaranteed pods, we could implement additional checks
-		// or we could still rebalance them, but with lower priority
-	}
+	// For Guaranteed pods, we could implement additional checks
+	// or we could still rebalance them, but with lower priority
+	// Currently, we allow rebalancing for all QoS classes
 
 	return true
 }

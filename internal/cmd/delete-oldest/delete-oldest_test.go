@@ -121,7 +121,7 @@ func TestPickOldest(t *testing.T) {
 		t.Errorf("expected test-pod-2, but got %s", pod.Name)
 	}
 
-	pod, err = pickOldest("test-pod-", 3, pods)
+	_, err = pickOldest("test-pod-", 3, pods)
 	if err == nil {
 		t.Errorf("expected error, but got nil")
 	}

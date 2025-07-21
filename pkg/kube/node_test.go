@@ -27,12 +27,12 @@ package kube
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -100,21 +100,37 @@ func TestNodeMatchesNodeSelector(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "NoSelectorReturnsTrue",
-			node:     &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-			selector: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{}}}}},
+			name: "NoSelectorReturnsTrue",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
+			selector: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{}},
+				}},
+			},
 			expected: true,
 		},
 		{
-			name:     "MatchingSelectorReturnsTrue",
-			node:     &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-			selector: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "foo", Values: []string{"bar"}, Operator: "In"}}}}},
+			name: "MatchingSelectorReturnsTrue",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
+			selector: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key: "foo", Values: []string{"bar"}, Operator: "In",
+					}},
+				}},
+			},
 			expected: true,
 		},
 		{
-			name:     "NotMatchingSelectorReturnsTrue",
-			node:     &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
-			selector: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "foo2", Values: []string{"bar2"}, Operator: "In"}}}}},
+			name: "NotMatchingSelectorReturnsTrue",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "bar"}}},
+			selector: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key: "foo2", Values: []string{"bar2"}, Operator: "In",
+					}},
+				}},
+			},
 			expected: false,
 		},
 	}

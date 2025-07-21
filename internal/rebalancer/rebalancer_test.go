@@ -101,15 +101,11 @@ func node(name string, opt ...func(n *corev1.Node)) *corev1.Node {
 	return n
 }
 
-func pod(name, node string, opt ...func(p *corev1.Pod)) *corev1.Pod {
-	p := &corev1.Pod{
+func pod(name, node string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
 		Spec:       corev1.PodSpec{NodeName: node},
 	}
-	for _, o := range opt {
-		o(p)
-	}
-	return p
 }
 
 func capacity(cpu, memory string) func(n *corev1.Node) {

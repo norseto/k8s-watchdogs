@@ -54,7 +54,8 @@ func NewReplicaSetStatus(rs []*appsv1.ReplicaSet) ReplicaSetStatus {
 
 // IsRollingUpdating checks if a ReplicaSet is undergoing rolling updates.
 // It takes a context and a ReplicaSet as parameters.
-// It iterates over the OwnerReferences of the ReplicaSet and checks if any of the OwnerReferences have more than one occurrence in the Owners map.
+// It iterates over the OwnerReferences of the ReplicaSet and checks if any of the
+// OwnerReferences have more than one occurrence in the Owners map.
 // If it finds such an OwnerReference, it returns true.
 // Otherwise, it returns false.
 func (u *ReplicaSetStatus) IsRollingUpdating(_ context.Context, rs *appsv1.ReplicaSet) bool {
