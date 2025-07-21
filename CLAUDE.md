@@ -28,6 +28,21 @@ go test ./internal/cmd/clean-evicted -v
 go test ./internal/cmd/clean-evicted -run TestCleanEvicted -v
 ```
 
+### Code Quality and Security
+```bash
+# Run golangci-lint
+make lint
+
+# Run golangci-lint with automatic fixes
+make lint-fix
+
+# Run vulnerability check with govulncheck
+make vulcheck
+
+# Run security analysis with gosec
+make seccheck
+```
+
 ### Docker Operations
 ```bash
 # Build Docker image

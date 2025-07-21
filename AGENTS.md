@@ -19,7 +19,11 @@
 
 ## Testing
 - Run `make vet` before every commit
-- Run `go test ./...` on every commit
+- Run `make test` on every commit
+- Run `make lint` on every commit
+- Run `make vulcheck` on every commit
+- Run `make seccheck` on every commit
+- Do not create PR if test fails
 
 ## Commit Message
 - Follow Conventional Commits
