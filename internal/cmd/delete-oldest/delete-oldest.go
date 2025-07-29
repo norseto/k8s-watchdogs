@@ -26,6 +26,8 @@ package deleteoldest
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
@@ -54,11 +56,24 @@ func NewCommand() *cobra.Command {
 				return nil
 			}
 
+			// Security: Validate prefix parameter
+			if err := validatePodPrefix(prefix); err != nil {
+				logger.FromContext(cmd.Context()).Error(err, "invalid prefix parameter")
+				return fmt.Errorf("invalid prefix: %w", err)
+			}
+
+			// Security: Validate minPods parameter
+			if minPods > 1000 {
+				return fmt.Errorf("minPods value too high for safety: %d", minPods)
+			}
+
+			cmd.SilenceUsage = true
+
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
-				logger.FromContext(ctx).Error(err, "failed to create clnt")
-				return err
+				logger.FromContext(ctx).Error(err, "failed to create client")
+				return fmt.Errorf("failed to create client: %w", err)
 			}
 			return deleteOldestPods(cmd.Context(), clnt, opts.Namespace(), prefix, minPods)
 		},
@@ -76,26 +91,70 @@ func NewCommand() *cobra.Command {
 // +kubebuilder:rbac:groups=core,resources=pods/status,verbs=get
 
 func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespace, prefix string, minPods int) error {
-
 	log := logger.FromContext(ctx)
+
+	// Security: Validate namespace parameter
+	if err := validateNamespace(namespace); err != nil {
+		log.Error(err, "invalid namespace parameter")
+		return fmt.Errorf("invalid namespace: %w", err)
+	}
 
 	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Error(err, "failed to list pods")
-		return err
+		log.Error(err, "failed to list pods", "namespace", namespace)
+		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	picked, err := pickOldest(prefix, minPods, pods.Items)
 	if err != nil {
 		log.Error(err, "failed to pick oldest pod")
-		return err
+		return fmt.Errorf("failed to pick oldest pod: %w", err)
 	}
+
+	// Security: Additional validation before deletion
+	if picked == nil || picked.Name == "" {
+		return fmt.Errorf("invalid pod selected for deletion")
+	}
+
 	if err := kube.DeletePod(ctx, client, *picked); err != nil {
-		log.Error(err, "failed to delete pod")
-		return err
+		log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", picked.Namespace, picked.Name))
+		return fmt.Errorf("failed to delete pod: %w", err)
 	}
-	log.Info("removed", "pod",
-		picked.Namespace+"/"+picked.Name)
+	log.Info("removed oldest pod", "pod", fmt.Sprintf("%s/%s", picked.Namespace, picked.Name))
+
+	return nil
+}
+
+// validatePodPrefix validates the pod prefix parameter for security
+func validatePodPrefix(prefix string) error {
+	if prefix == "" {
+		return fmt.Errorf("prefix cannot be empty")
+	}
+
+	if len(prefix) > 50 {
+		return fmt.Errorf("prefix too long: %d characters", len(prefix))
+	}
+
+	// Kubernetes pod naming rules: lowercase alphanumeric, hyphens, and dots
+	validPrefix := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?`)
+	if !validPrefix.MatchString(prefix) {
+		return fmt.Errorf("invalid prefix format")
+	}
+
+	return nil
+}
+
+// validateNamespace validates the namespace parameter for security
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
+	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
+		return fmt.Errorf("invalid namespace format")
+	}
 
 	return nil
 }

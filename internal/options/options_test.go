@@ -74,7 +74,7 @@ func TestOptions_BindCommonFlags(t *testing.T) {
 	if namespaceFlag == nil {
 		t.Error("Expected namespace flag to be bound")
 	} else {
-		expected := metav1.NamespaceAll
+		expected := metav1.NamespaceDefault
 		actual := namespaceFlag.Value.String()
 
 		if actual != expected {

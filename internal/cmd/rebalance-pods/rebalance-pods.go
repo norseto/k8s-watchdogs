@@ -30,6 +30,7 @@ package rebalancepods
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
@@ -55,10 +56,24 @@ func NewCommand() *cobra.Command {
 		Short: "Delete bias scheduled pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+
+			// Security: Validate namespace parameter
+			if err := validateNamespace(opts.Namespace()); err != nil {
+				logger.FromContext(ctx).Error(err, "invalid namespace parameter")
+				return fmt.Errorf("invalid namespace: %w", err)
+			}
+
+			// Security: Validate rate parameter
+			if rate < 0 || rate > 1.0 {
+				return fmt.Errorf("invalid rebalance rate: %f (must be between 0 and 1.0)", rate)
+			}
+
+			cmd.SilenceUsage = true
+
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
-				return err
+				return fmt.Errorf("failed to create client: %w", err)
 			}
 			return rebalancePods(cmd.Context(), clnt, opts.Namespace(), rate)
 		},
@@ -75,39 +90,56 @@ func NewCommand() *cobra.Command {
 
 func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace string, rate float32) error {
 	log := logger.FromContext(ctx)
+
 	nodes, err := kube.GetAllNodes(ctx, client)
 	if err != nil {
-		log.Error(err, "failed to list nodes")
-		return err
+		log.Error(err, "failed to list nodes", "namespace", namespace)
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 
 	replicas, err := getTargetReplicaSets(ctx, client, namespace)
 	if err != nil {
-		log.Error(err, "failed to get replicaset")
-		return err
+		log.Error(err, "failed to get replicaset", "namespace", namespace)
+		return fmt.Errorf("failed to get replicasets: %w", err)
 	}
+
 	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
 	if err != nil {
-		log.Error(err, "failed to list pods")
-		return err
+		log.Error(err, "failed to list pods", "namespace", namespace)
+		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	if len(rs) < 1 {
-		log.Info("No rs. Do nothing.")
+		log.Info("No replicasets found for rebalancing")
 		return nil
+	}
+
+	// Security: Limit the number of replicasets that can be rebalanced in one operation
+	const maxRebalancePerRun = 100
+	if len(rs) > maxRebalancePerRun {
+		log.Info("limiting replicasets for safety", "found", len(rs), "limit", maxRebalancePerRun)
+		rs = rs[:maxRebalancePerRun]
 	}
 
 	rsStat := kube.NewReplicaSetStatus(replicas)
 	numRebalanced := 0
 	for _, r := range rs {
+		// Security: Additional validation
+		if r == nil || r.Replicaset == nil {
+			log.V(1).Info("skipping invalid replicaset")
+			continue
+		}
+
 		name := r.Replicaset.Name
 		if rsStat.IsRollingUpdating(ctx, r.Replicaset) {
 			log.Info("May under rolling update. Leave untouched", "rs", name)
 			continue
 		}
+
 		result, err := rebalancer.NewRebalancer(ctx, r, rate).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
+			// Continue with other replicasets instead of failing completely
 		} else if result {
 			log.V(1).Info("Rebalanced", "rs", name)
 			numRebalanced++
@@ -116,7 +148,22 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 		}
 	}
 
-	log.Info("Rebalanced replicasets", "count", numRebalanced)
+	log.Info("Rebalanced replicasets", "count", numRebalanced, "total", len(rs))
+	return nil
+}
+
+// validateNamespace validates the namespace parameter for security
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
+	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
+		return fmt.Errorf("invalid namespace format")
+	}
+
 	return nil
 }
 

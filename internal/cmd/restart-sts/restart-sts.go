@@ -27,6 +27,7 @@ package restartsts
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
@@ -48,10 +49,27 @@ func NewCommand() *cobra.Command {
 		Long:  "Restart one or more statefulsets by specifying statefulset-name(s), or use --all to restart all in the namespace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+
+			// Security: Validate namespace parameter
+			if err := validateNamespace(opts.Namespace()); err != nil {
+				logger.FromContext(ctx).Error(err, "invalid namespace parameter")
+				return fmt.Errorf("invalid namespace: %w", err)
+			}
+
+			// Security: Validate statefulset names
+			for _, name := range args {
+				if err := validateResourceName(name); err != nil {
+					logger.FromContext(ctx).Error(err, "invalid statefulset name", "name", name)
+					return fmt.Errorf("invalid statefulset name %s: %w", name, err)
+				}
+			}
+
+			cmd.SilenceUsage = true
+
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
-				return err
+				return fmt.Errorf("failed to create client: %w", err)
 			}
 
 			if allStatefulSets {
@@ -62,6 +80,7 @@ func NewCommand() *cobra.Command {
 				_ = cmd.Usage()
 				return nil
 			}
+
 			return restartStatefulSet(ctx, clnt, opts.Namespace(), args)
 		},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -125,21 +144,63 @@ func restartAllStatefulSets(ctx context.Context, client kubernetes.Interface, na
 func restartStatefulSet(ctx context.Context, client kubernetes.Interface, namespace string, targets []string) error {
 	log := logger.FromContext(ctx)
 
+	// Security: Limit the number of statefulsets that can be restarted in one operation
+	const maxRestartsPerRun = 50
+	if len(targets) > maxRestartsPerRun {
+		return fmt.Errorf("too many statefulsets specified: %d (max: %d)", len(targets), maxRestartsPerRun)
+	}
+
 	for _, target := range targets {
 		sts, err := client.AppsV1().StatefulSets(namespace).Get(ctx, target, metav1.GetOptions{})
-		if err != nil || sts == nil {
-			log.Error(err, "failed to get statefulset", "target",
-				fmt.Sprintf("%s/%s", namespace, target))
-			return err
+		if err != nil {
+			log.Error(err, "failed to get statefulset", "target", fmt.Sprintf("%s/%s", namespace, target))
+			return fmt.Errorf("failed to get statefulset %s/%s: %w", namespace, target, err)
+		}
+
+		if sts == nil {
+			return fmt.Errorf("statefulset %s/%s not found", namespace, target)
 		}
 
 		err = kube.RestartStatefulSet(ctx, client, sts)
 		if err != nil {
-			log.Error(err, "failed to restart statefulset", "target",
-				fmt.Sprintf("%s/%s", namespace, target))
-			return err
+			log.Error(err, "failed to restart statefulset", "target", fmt.Sprintf("%s/%s", namespace, target))
+			return fmt.Errorf("failed to restart statefulset %s/%s: %w", namespace, target, err)
 		}
-		log.Info("Restarted statefulset", "statefulset", target)
+		log.Info("Restarted statefulset", "statefulset", target, "namespace", namespace)
 	}
+	return nil
+}
+
+// validateResourceName validates Kubernetes resource names for security
+func validateResourceName(name string) error {
+	if name == "" {
+		return fmt.Errorf("resource name cannot be empty")
+	}
+
+	if len(name) > 253 {
+		return fmt.Errorf("resource name too long: %d characters", len(name))
+	}
+
+	// Kubernetes resource naming rules: lowercase alphanumeric, hyphens, and dots
+	validName := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
+	if !validName.MatchString(name) {
+		return fmt.Errorf("invalid resource name format")
+	}
+
+	return nil
+}
+
+// validateNamespace validates the namespace parameter for security
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
+	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
+		return fmt.Errorf("invalid namespace format")
+	}
+
 	return nil
 }

@@ -27,6 +27,7 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -47,6 +48,8 @@ func NewCommand() *cobra.Command {
 		Use:   "clean-evicted",
 		Short: "Clean evicted pods",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+
 			ctx := cmd.Context()
 			clnt, err := client.NewClientset(client.FromContext(ctx))
 			if err != nil {
@@ -67,22 +70,42 @@ func NewCommand() *cobra.Command {
 func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespace string) error {
 	log := logger.FromContext(ctx)
 
+	// Security: Validate namespace parameter
+	if err := validateNamespace(namespace); err != nil {
+		log.Error(err, "invalid namespace parameter")
+		return fmt.Errorf("invalid namespace: %w", err)
+	}
+
 	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Error(err, "failed to list pods")
-		return err
+		log.Error(err, "failed to list pods", "namespace", namespace)
+		return fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	evictedPods := kube.FilterPods(pods, kube.IsEvictedPod)
 
+	// Security: Limit the number of pods that can be deleted in one operation
+	const maxDeletionsPerRun = 100
+	if len(evictedPods) > maxDeletionsPerRun {
+		log.Info("limiting pod deletions for safety", "found", len(evictedPods), "limit", maxDeletionsPerRun)
+		evictedPods = evictedPods[:maxDeletionsPerRun]
+	}
+
 	deleted := 0
 	var errs []error
 	for _, pod := range evictedPods {
+		// Security: Additional validation before deletion
+		if pod == nil || pod.Name == "" {
+			log.V(1).Info("skipping invalid pod")
+			continue
+		}
+
 		if err := kube.DeletePod(ctx, client, *pod); err != nil {
 			errs = append(errs, err)
 			log.Error(err, "failed to delete pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		} else {
 			deleted++
+			log.V(1).Info("deleted evicted pod", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name))
 		}
 	}
 
@@ -90,5 +113,20 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to delete %d pods", len(errs))
 	}
+	return nil
+}
+
+// validateNamespace validates the namespace parameter for security
+func validateNamespace(namespace string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+
+	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
+	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
+		return fmt.Errorf("invalid namespace format")
+	}
+
 	return nil
 }

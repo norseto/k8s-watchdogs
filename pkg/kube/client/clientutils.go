@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -57,18 +58,33 @@ func (o *Options) BindPFlags(fs *pflag.FlagSet) {
 	_ = fs.MarkHidden("kubeconfig")
 }
 
-// GetConfigFilePath retrieves the kubeconfig file path.
+// GetConfigFilePath retrieves the kubeconfig file path with security validation.
 func (o *Options) GetConfigFilePath() string {
+	var path string
+
 	if o.configFilePath != "" {
-		return o.configFilePath
+		path = o.configFilePath
+	} else if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
+		path = envVar
+	} else if home := os.Getenv("HOME"); home != "" {
+		path = filepath.Join(home, ".kube", "config")
+	} else {
+		return ""
 	}
-	if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
-		return envVar
+
+	// Security: Validate and clean the path to prevent path traversal attacks
+	if path != "" {
+		// Clean the path to resolve any .. or . components
+		cleanPath := filepath.Clean(path)
+
+		// Ensure the path doesn't contain suspicious patterns
+		if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") || strings.HasPrefix(cleanPath, "/sys") {
+			return ""
+		}
+
+		return cleanPath
 	}
-	if home := os.Getenv("HOME"); home != "" {
-		path := filepath.Join(home, ".kube", "config")
-		return path
-	}
+
 	return ""
 }
 
