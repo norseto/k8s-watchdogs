@@ -76,3 +76,4 @@ Temporary Items
 
 bin/
 .claude/
+.aider*

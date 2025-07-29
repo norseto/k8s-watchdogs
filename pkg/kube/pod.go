@@ -93,7 +93,7 @@ func GetPodRequestResources(podSpec corev1.PodSpec) corev1.ResourceList {
 // DeletePod deletes a pod using the Kubernetes client.
 func DeletePod(ctx context.Context, client kubernetes.Interface, pod corev1.Pod) error {
 	if err := client.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to delete Pod: %s, %w", pod.Name, err)
+		return fmt.Errorf("failed to delete Pod %q: %w", pod.Name, err)
 	}
 	return nil
 }

@@ -26,6 +26,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -37,9 +38,26 @@ import (
 
 // RestartStatefulSet restarts a statefulset by updating its template metadata annotations with the current time.
 func RestartStatefulSet(ctx context.Context, client kubernetes.Interface, sts *appsv1.StatefulSet) error {
-	data := fmt.Sprintf(restartPatchTemplate, time.Now().Format(time.RFC3339))
-	_, err := client.AppsV1().StatefulSets(sts.Namespace).Patch(ctx, sts.Name,
-		types.StrategicMergePatchType, []byte(data),
+	patch := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]string{
+						"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
+					},
+				},
+			},
+		},
+	}
+	data, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch data: %w", err)
+	}
+	_, err = client.AppsV1().StatefulSets(sts.Namespace).Patch(ctx, sts.Name,
+		types.StrategicMergePatchType, data,
 		metav1.PatchOptions{FieldManager: "kubectl-rollout"})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to restart StatefulSet %q: %w", sts.Name, err)
+	}
+	return nil
 }
