@@ -78,7 +78,8 @@ func (o *Options) GetConfigFilePath() string {
 		cleanPath := filepath.Clean(path)
 
 		// Ensure the path doesn't contain suspicious patterns
-		if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") || strings.HasPrefix(cleanPath, "/sys") {
+		if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") ||
+			strings.HasPrefix(cleanPath, "/sys") {
 			return ""
 		}
 
