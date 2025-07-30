@@ -9,4 +9,4 @@ resources:
 images:
 - name: k8s-watchdogs
   newName: norseto/k8s-watchdogs
-  newTag: v0.2.0-beta.1
+  newTag: v0.2.0
