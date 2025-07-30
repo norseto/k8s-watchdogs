@@ -24,14 +24,11 @@ SOFTWARE.
 
 package generics
 
+import "slices"
+
 // Contains checks that the string is Contains in the specified list
 func Contains[T comparable](s T, list []T) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }
 
 // MakItemMap takes in a slice of items and a namer function,
@@ -89,7 +86,7 @@ func Convert[T any, V any](items []T, converter func(T) V, filter func(T) bool) 
 //	    fmt.Println(item)
 //	})
 func Each[T any](items []T, action func(T)) {
-	for i := 0; i < len(items); i++ {
+	for i := range items {
 		item := items[i]
 		action(item)
 	}
@@ -101,7 +98,7 @@ func Each[T any](items []T, action func(T)) {
 // It ensures that the action function has the signature func(T) error,
 // where T represents the type of items in the slice.
 func EachE[T any](items []T, action func(T) error) error {
-	for i := 0; i < len(items); i++ {
+	for i := range items {
 		item := items[i]
 		if err := action(item); err != nil {
 			return err

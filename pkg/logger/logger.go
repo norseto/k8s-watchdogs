@@ -104,7 +104,7 @@ func makeCmdValue(cmd *cobra.Command) string {
 // The key-value pairs are optional and can be used for additional logging information.
 // It expects a context.Context as the first argument, followed by optional key-value pairs.
 // It returns a logr.Logger instance.
-func FromContext(ctx context.Context, keyAndValues ...interface{}) logr.Logger {
+func FromContext(ctx context.Context, keyAndValues ...any) logr.Logger {
 	return clog.FromContext(ctx, keyAndValues...)
 }
 

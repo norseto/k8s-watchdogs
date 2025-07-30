@@ -41,10 +41,20 @@ import (
 )
 
 func main() {
+	rootCmd := NewRootCmd()
+	if err := rootCmd.Execute(); err != nil {
+		logger.FromContext(rootCmd.Context()).Error(err, "Failed to execute command")
+		os.Exit(1)
+	}
+}
+
+// NewRootCmd creates and returns the root cobra.Command for the watchdogs CLI application.
+// It sets up the command structure, context, logging, and persistent flags.
+func NewRootCmd() *cobra.Command {
 	opts := &client.Options{}
 	ctx := client.WithContext(context.Background(), opts)
 
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "watchdogs",
 		Short: "Kubernetes watchdogs utilities",
 		Long:  `Kubernetes utilities that can cleanup evicted pod, re-balance pod or restart deployment and so on`,
@@ -67,8 +77,5 @@ func main() {
 		vrcmd.NewCommand(),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
-		logger.FromContext(ctx).Error(err, "Failed to execute command")
-		os.Exit(1)
-	}
+	return rootCmd
 }

@@ -150,12 +150,9 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 	}
 
 	deleted := 0
-	maxDel := int(float32(sr) * r.maxRebalanceRate)
-	if maxDel < 1 {
-		maxDel = 1
-	}
+	maxDel := max(int(float32(sr)*r.maxRebalanceRate), 1)
 
-	for i := 0; i < maxDel; i++ {
+	for range maxDel {
 		node, num := r.getNodeWithMaxPods()
 		if num < 1 {
 			return deleted > 0, nil
@@ -178,7 +175,7 @@ func (r *Rebalancer) Rebalance(ctx context.Context, client k8s.Interface) (bool,
 func (r *Rebalancer) deletePodOnNode(ctx context.Context, client k8s.Interface, node string) error {
 	log := logger.FromContext(ctx)
 	l := len(r.current.PodStatus)
-	for i := 0; i < l; i++ {
+	for i := range l {
 		s := r.current.PodStatus[i]
 		if s.deleted || s.Pod == nil {
 			continue

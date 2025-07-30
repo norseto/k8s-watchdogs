@@ -38,10 +38,10 @@ import (
 
 // RestartStatefulSet restarts a statefulset by updating its template metadata annotations with the current time.
 func RestartStatefulSet(ctx context.Context, client kubernetes.Interface, sts *appsv1.StatefulSet) error {
-	patch := map[string]interface{}{
-		"spec": map[string]interface{}{
-			"template": map[string]interface{}{
-				"metadata": map[string]interface{}{
+	patch := map[string]any{
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{
 					"annotations": map[string]string{
 						"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
 					},

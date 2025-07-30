@@ -16,6 +16,10 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: modernize
+modernize: ## Run modernize against code. see https://pkg.go.dev/golang.org/x/tools/gopls/internal/analysis/modernize
+	go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest -fix -test ./...
+
 .PHONY: vulcheck
 vulcheck: govulncheck ## Run govulncheck against code.
 	$(GOVULNCHECK) ./...

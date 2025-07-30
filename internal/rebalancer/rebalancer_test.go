@@ -153,7 +153,7 @@ func TestFilterSchedulables(t *testing.T) {
 	if len(actual) != len(expected) {
 		t.Errorf("Expected %d Nodes, but got %d", len(expected), len(actual))
 	} else {
-		for i := 0; i < len(actual); i++ {
+		for i := range actual {
 			if actual[i].Name != expected[i].Name {
 				t.Errorf("Expected Node %s, but got %s", expected[i].Name, actual[i].Name)
 			}
