@@ -56,7 +56,7 @@ func TestGetKubeconfig(t *testing.T) {
 				_ = os.Setenv("HOME", "/home/mock")
 			},
 			teardown: func() {
-				_ = os.Unsetenv("Home")
+				_ = os.Unsetenv("HOME")
 			},
 			expected: "/home/mock/.kube/config",
 		},
@@ -188,16 +188,14 @@ current-context: test`
 			name: "fallback to incluster",
 			path: filepath.Join(tmpDir, "missing"),
 			setup: func() {
-				os.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
-				os.Setenv("KUBERNETES_SERVICE_PORT", "6443")
+				t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+				t.Setenv("KUBERNETES_SERVICE_PORT", "6443")
 				saDir := "/var/run/secrets/kubernetes.io/serviceaccount"
 				_ = os.MkdirAll(saDir, 0755)
 				_ = os.WriteFile(filepath.Join(saDir, "token"), []byte("dummy"), 0644)
 				_ = os.WriteFile(filepath.Join(saDir, "ca.crt"), []byte("dummy"), 0644)
 			},
 			teardown: func() {
-				os.Unsetenv("KUBERNETES_SERVICE_HOST")
-				os.Unsetenv("KUBERNETES_SERVICE_PORT")
 				saDir := "/var/run/secrets/kubernetes.io/serviceaccount"
 				_ = os.Remove(filepath.Join(saDir, "token"))
 				_ = os.Remove(filepath.Join(saDir, "ca.crt"))
@@ -225,49 +223,62 @@ current-context: test`
 }
 
 func TestNewClientsetWithRestConfig(t *testing.T) {
-	patches := gomonkey.NewPatches()
-	defer patches.Reset()
-
 	dummyClient := &kubernetes.Clientset{}
 	dummyCfg := &rest.Config{Host: "dummy"}
 
-	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
-		return dummyCfg, nil
-	})
-	patches.ApplyFunc(kubernetes.NewForConfig, func(c *rest.Config) (*kubernetes.Clientset, error) {
-		assert.Equal(t, dummyCfg, c)
-		return dummyClient, nil
-	})
+	tests := []struct {
+		name      string
+		cfgErr    error
+		clientErr error
+		wantErr   bool
+	}{
+		{
+			name:    "success",
+			wantErr: false,
+		},
+		{
+			name:    "config error",
+			cfgErr:  assert.AnError,
+			wantErr: true,
+		},
+		{
+			name:      "client error",
+			clientErr: assert.AnError,
+			wantErr:   true,
+		},
+	}
 
-	cl, cfg, err := NewClientsetWithRestConfig(&Options{})
-	assert.NoError(t, err)
-	assert.Equal(t, dummyClient, cl)
-	assert.Equal(t, dummyCfg, cfg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patches := gomonkey.NewPatches()
+			defer patches.Reset()
 
-	patches.Reset()
+			patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
+				if tt.cfgErr != nil {
+					return nil, tt.cfgErr
+				}
+				return dummyCfg, nil
+			})
+			patches.ApplyFunc(kubernetes.NewForConfig, func(c *rest.Config) (*kubernetes.Clientset, error) {
+				if tt.clientErr != nil {
+					return nil, tt.clientErr
+				}
+				assert.Equal(t, dummyCfg, c)
+				return dummyClient, nil
+			})
 
-	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
-		return nil, assert.AnError
-	})
-
-	cl, cfg, err = NewClientsetWithRestConfig(&Options{})
-	assert.Error(t, err)
-	assert.Nil(t, cl)
-	assert.Nil(t, cfg)
-
-	patches.Reset()
-
-	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
-		return dummyCfg, nil
-	})
-	patches.ApplyFunc(kubernetes.NewForConfig, func(*rest.Config) (*kubernetes.Clientset, error) {
-		return nil, assert.AnError
-	})
-
-	cl, cfg, err = NewClientsetWithRestConfig(&Options{})
-	assert.Error(t, err)
-	assert.Nil(t, cl)
-	assert.Nil(t, cfg)
+			cl, cfg, err := NewClientsetWithRestConfig(&Options{})
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, cl)
+				assert.Nil(t, cfg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, dummyClient, cl)
+			assert.Equal(t, dummyCfg, cfg)
+		})
+	}
 }
 
 func TestNewClientsetDelegation(t *testing.T) {
