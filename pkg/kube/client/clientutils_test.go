@@ -28,7 +28,13 @@ import (
 	"context"
 	"flag"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var backup *flag.FlagSet
@@ -131,4 +137,146 @@ func TestWithContext(t *testing.T) {
 	if value := ctx.Value(contextKey{}); value != (*Options)(nil) {
 		t.Errorf("Expected nil options, but got %v", value)
 	}
+}
+
+func TestNewRESTConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	kubeconfigPath := filepath.Join(tmpDir, "config")
+	kubeconfigContent := `apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: https://127.0.0.1
+    insecure-skip-tls-verify: true
+users:
+- name: test
+  user:
+    token: dummy
+contexts:
+- name: test
+  context:
+    cluster: test
+    user: test
+current-context: test`
+	err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0600)
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		path      string
+		setup     func()
+		teardown  func()
+		wantHost  string
+		expectErr bool
+	}{
+		{
+			name:     "valid path",
+			path:     kubeconfigPath,
+			setup:    func() {},
+			teardown: func() {},
+			wantHost: "https://127.0.0.1",
+		},
+		{
+			name:      "invalid path",
+			path:      filepath.Join(tmpDir, "noexist"),
+			setup:     func() {},
+			teardown:  func() {},
+			expectErr: true,
+		},
+		{
+			name: "fallback to incluster",
+			path: filepath.Join(tmpDir, "missing"),
+			setup: func() {
+				os.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+				os.Setenv("KUBERNETES_SERVICE_PORT", "6443")
+				saDir := "/var/run/secrets/kubernetes.io/serviceaccount"
+				_ = os.MkdirAll(saDir, 0755)
+				_ = os.WriteFile(filepath.Join(saDir, "token"), []byte("dummy"), 0644)
+				_ = os.WriteFile(filepath.Join(saDir, "ca.crt"), []byte("dummy"), 0644)
+			},
+			teardown: func() {
+				os.Unsetenv("KUBERNETES_SERVICE_HOST")
+				os.Unsetenv("KUBERNETES_SERVICE_PORT")
+				saDir := "/var/run/secrets/kubernetes.io/serviceaccount"
+				_ = os.Remove(filepath.Join(saDir, "token"))
+				_ = os.Remove(filepath.Join(saDir, "ca.crt"))
+			},
+			wantHost: "https://10.0.0.1:6443",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			defer tt.teardown()
+			opts := &Options{configFilePath: tt.path}
+			cfg, err := NewRESTConfig(opts)
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, cfg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.NotNil(t, cfg)
+			assert.Equal(t, tt.wantHost, cfg.Host)
+		})
+	}
+}
+
+func TestNewClientsetWithRestConfig(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	dummyClient := &kubernetes.Clientset{}
+	dummyCfg := &rest.Config{Host: "dummy"}
+
+	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
+		return dummyCfg, nil
+	})
+	patches.ApplyFunc(kubernetes.NewForConfig, func(c *rest.Config) (*kubernetes.Clientset, error) {
+		assert.Equal(t, dummyCfg, c)
+		return dummyClient, nil
+	})
+
+	cl, cfg, err := NewClientsetWithRestConfig(&Options{})
+	assert.NoError(t, err)
+	assert.Equal(t, dummyClient, cl)
+	assert.Equal(t, dummyCfg, cfg)
+
+	patches.Reset()
+
+	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
+		return nil, assert.AnError
+	})
+
+	cl, cfg, err = NewClientsetWithRestConfig(&Options{})
+	assert.Error(t, err)
+	assert.Nil(t, cl)
+	assert.Nil(t, cfg)
+
+	patches.Reset()
+
+	patches.ApplyFunc(NewRESTConfig, func(*Options) (*rest.Config, error) {
+		return dummyCfg, nil
+	})
+	patches.ApplyFunc(kubernetes.NewForConfig, func(*rest.Config) (*kubernetes.Clientset, error) {
+		return nil, assert.AnError
+	})
+
+	cl, cfg, err = NewClientsetWithRestConfig(&Options{})
+	assert.Error(t, err)
+	assert.Nil(t, cl)
+	assert.Nil(t, cfg)
+}
+
+func TestNewClientsetDelegation(t *testing.T) {
+	patches := gomonkey.ApplyFunc(NewClientsetWithRestConfig, func(opts *Options) (*kubernetes.Clientset, *rest.Config, error) {
+		return &kubernetes.Clientset{}, &rest.Config{}, nil
+	})
+	defer patches.Reset()
+
+	cl, err := NewClientset(&Options{})
+	assert.NoError(t, err)
+	assert.NotNil(t, cl)
 }
