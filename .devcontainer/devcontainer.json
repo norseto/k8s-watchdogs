@@ -26,13 +26,7 @@
       "settings": {
         "terminal.integrated.shell.linux": "/bin/bash",
         "go.gopath": "/go"
-      },
-      "extensions": [
-        "ms-vscode.go",
-        "ms-azuretools.vscode-docker",
-        "editorconfig.editorconfig",
-        "ms-kubernetes-tools.vscode-kubernetes-tools"
-      ]
+      }
     }
   },
 
@@ -42,6 +36,9 @@
   },
 
   "postCreateCommand": ". .devcontainer/post-create.sh",
+
+  "workspaceMount": "type=bind,source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename}",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 
   // Uncomment the next line if you want to publish any ports.
   // "appPort": [],
