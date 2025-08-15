@@ -76,3 +76,5 @@ Temporary Items
 
 bin/
 .claude/
+.serena/
+dist/
