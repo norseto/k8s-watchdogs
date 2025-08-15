@@ -83,6 +83,10 @@ docker-buildx-setup: ## Setup buildx builder for multi-arch builds.
 .PHONY: docker-buildx
 docker-buildx: docker-buildx-setup ## Build and push docker image for multiple architectures using buildx.
 	docker buildx build  --build-arg MODULE_PACKAGE=$(MODULE_PACKAGE) --build-arg GITVERSION=$(GITSHA) --platform linux/amd64,linux/arm64 --push -t $(IMG) .
+.PHONY: docker-buildx-local
+docker-buildx-local: docker-buildx-setup ## Build multi-arch image locally (no push), output as OCI archive tar.
+	mkdir -p dist
+	docker buildx build --build-arg MODULE_PACKAGE=$(MODULE_PACKAGE) --build-arg GITVERSION=$(GITSHA) --platform linux/amd64,linux/arm64 -t $(IMG) --output=type=oci,dest=dist/k8s-watchdogs_oci.tar .
 .PHONY: docker-build
 docker-build:
 	docker build  --build-arg MODULE_PACKAGE=$(MODULE_PACKAGE) --build-arg GITVERSION=$(GITSHA) -t $(IMG) .

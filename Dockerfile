@@ -1,4 +1,4 @@
-FROM golang:1.24.4-alpine AS build
+FROM golang:1.24.6-alpine AS build
 
 ARG GITVERSION
 ARG MODULE_PACKAGE
@@ -17,6 +17,6 @@ RUN go mod download \
 
 FROM gcr.io/distroless/static-debian12
 WORKDIR /
-COPY --from=BUILD --chown=65534:65534 /dist /
+COPY --from=build --chown=65534:65534 /dist /
 USER 65534
 CMD ["/watchdogs"]

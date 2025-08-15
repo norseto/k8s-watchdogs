@@ -76,5 +76,6 @@ Temporary Items
 
 bin/
 .claude/
+.serena/
+dist/
 .aider*
-.zed/
