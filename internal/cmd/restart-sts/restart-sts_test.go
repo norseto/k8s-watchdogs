@@ -165,9 +165,10 @@ func TestNewCommand(t *testing.T) {
 
 	t.Run("invalid namespace", func(t *testing.T) {
 		cmd := NewCommand()
-		cmd.Flags().Set("namespace", "Invalid*")
+		err := cmd.Flags().Set("namespace", "Invalid*")
+		assert.NoError(t, err)
 		cmd.SetArgs([]string{"test"})
-		err := cmd.Execute()
+		err = cmd.Execute()
 		assert.Error(t, err)
 	})
 

@@ -133,6 +133,30 @@ func TestNodeMatchesNodeSelector(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "GtOperatorReturnsFalse",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "5"}}},
+			selector: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key: "foo", Values: []string{"10"}, Operator: corev1.NodeSelectorOpGt,
+					}},
+				}},
+			},
+			expected: false,
+		},
+		{
+			name: "LtOperatorReturnsFalse",
+			node: &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"foo": "5"}}},
+			selector: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key: "foo", Values: []string{"1"}, Operator: corev1.NodeSelectorOpLt,
+					}},
+				}},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range testCases {
