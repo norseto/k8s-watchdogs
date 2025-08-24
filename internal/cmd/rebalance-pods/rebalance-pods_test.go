@@ -217,13 +217,15 @@ func TestNewCommand(t *testing.T) {
 	}
 
 	// invalid namespace
-	cmd.Flags().Set("namespace", "invalid#ns")
-	err := cmd.Execute()
+	err := cmd.Flags().Set("namespace", "invalid#ns")
+	assert.NoError(t, err)
+	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// invalid rate
 	cmd = NewCommand()
-	cmd.Flags().Set("rate", "1.5")
+	err = cmd.Flags().Set("rate", "1.5")
+	assert.NoError(t, err)
 	err = cmd.Execute()
 	assert.Error(t, err)
 }
@@ -338,8 +340,8 @@ func TestRebalancePods_ErrorCases(t *testing.T) {
 
 func TestRebalancePods_LimitReplicaSets(t *testing.T) {
 	ctx := context.Background()
-	var objects []runtime.Object
 	nodes := []*corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "n1"}}, {ObjectMeta: metav1.ObjectMeta{Name: "n2"}}}
+	objects := make([]runtime.Object, 0, len(nodes))
 	for _, n := range nodes {
 		objects = append(objects, n)
 	}
