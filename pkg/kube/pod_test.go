@@ -218,3 +218,108 @@ func TestGetPodRequestResources(t *testing.T) {
 		t.Errorf("Memory resource mismatch, expected: %v, got: %v", expected.Memory(), result.Memory())
 	}
 }
+func TestCanBeRebalanced(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      *corev1.Pod
+		expected bool
+	}{
+		{
+			name: "StatefulSet owned",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{{
+						Kind: KindStatefulSet,
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "DaemonSet owned",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{{
+						Kind: KindDaemonSet,
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "hostPath volume",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{{
+						VolumeSource: corev1.VolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{Path: "/data"},
+						},
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "memory emptyDir",
+			pod: &corev1.Pod{
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{{
+						VolumeSource: corev1.VolumeSource{
+							EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
+						},
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:     "rebalancable pod",
+			pod:      &corev1.Pod{},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, CanBeRebalanced(tt.pod))
+		})
+	}
+}
+
+func TestFilterPods(t *testing.T) {
+	readyPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "ready"},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+
+	notReadyPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "not-ready"},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionFalse,
+			}},
+		},
+	}
+
+	pendingPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pending"},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+		},
+	}
+
+	list := &corev1.PodList{Items: []corev1.Pod{readyPod, notReadyPod, pendingPod}}
+
+	filtered := FilterPods(list, func(p *corev1.Pod) bool { return IsPodReadyRunning(*p) })
+
+	assert.Len(t, filtered, 1)
+	assert.Equal(t, "ready", filtered[0].Name)
+}
