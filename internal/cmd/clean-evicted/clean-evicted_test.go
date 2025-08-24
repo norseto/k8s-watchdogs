@@ -124,6 +124,57 @@ func TestCleanEvictedPods(t *testing.T) {
 	}
 }
 
+// TestCleanEvictedPodsLimit verifies deletion is capped at 100 pods.
+func TestCleanEvictedPodsLimit(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	for i := 0; i < 150; i++ {
+		pod := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("pod-%d", i)},
+			Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+		}
+		_, err := client.CoreV1().Pods("test").Create(context.Background(), &pod, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	err := cleanEvictedPods(context.Background(), client, "test")
+	assert.NoError(t, err)
+
+	deleteActions := 0
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "pods") {
+			deleteActions++
+		}
+	}
+	assert.Equal(t, 100, deleteActions)
+
+	pods, err := client.CoreV1().Pods("test").List(context.Background(), metav1.ListOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, 50, len(pods.Items))
+}
+
+// TestValidateNamespace tests namespace validation.
+func TestValidateNamespace(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		wantErr   bool
+	}{
+		{name: "Empty", namespace: "", wantErr: true},
+		{name: "Invalid", namespace: "Invalid_Namespace", wantErr: true},
+		{name: "Valid", namespace: "valid-namespace", wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNamespace(tt.namespace)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestNewCommand(t *testing.T) {
 	assert.NotNil(t, NewCommand())
 }
