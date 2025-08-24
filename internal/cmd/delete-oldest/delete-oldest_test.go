@@ -26,6 +26,7 @@ package deleteoldest
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -131,5 +132,48 @@ func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
 	if cmd == nil {
 		t.Errorf("Expected command, but got nil")
+	}
+}
+
+func TestValidatePodPrefix(t *testing.T) {
+	tests := []struct {
+		name    string
+		prefix  string
+		wantErr bool
+	}{
+		{name: "valid", prefix: "valid-prefix", wantErr: false},
+		{name: "empty", prefix: "", wantErr: true},
+		{name: "too-long", prefix: strings.Repeat("a", 51), wantErr: true},
+		{name: "invalid-pattern", prefix: "Invalid_Prefix", wantErr: true},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePodPrefix(tt.prefix)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validatePodPrefix(%q) error = %v, wantErr %v", tt.prefix, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateNamespace(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		wantErr   bool
+	}{
+		{name: "valid", namespace: "valid-ns", wantErr: false},
+		{name: "empty", namespace: "", wantErr: true},
+		{name: "invalid-chars", namespace: "Invalid_Namespace", wantErr: true},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNamespace(tt.namespace)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateNamespace(%q) error = %v, wantErr %v", tt.namespace, err, tt.wantErr)
+			}
+		})
 	}
 }
