@@ -28,6 +28,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -131,4 +132,100 @@ func TestWithContext(t *testing.T) {
 	if value := ctx.Value(contextKey{}); value != (*Options)(nil) {
 		t.Errorf("Expected nil options, but got %v", value)
 	}
+}
+
+func createTempKubeconfig(t *testing.T) string {
+	content := []byte("apiVersion: v1\n" +
+		"clusters:\n" +
+		"- cluster:\n" +
+		"    server: https://127.0.0.1\n" +
+		"  name: test\n" +
+		"contexts:\n" +
+		"- context:\n" +
+		"    cluster: test\n" +
+		"    user: test\n" +
+		"  name: test\n" +
+		"current-context: test\n" +
+		"users:\n" +
+		"- name: test\n" +
+		"  user:\n" +
+		"    token: dummy\n")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+	return path
+}
+
+func TestNewRESTConfig(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		opts := &Options{configFilePath: createTempKubeconfig(t)}
+		cfg, err := NewRESTConfig(opts)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if cfg == nil || cfg.Host != "https://127.0.0.1" {
+			t.Errorf("unexpected config: %#v", cfg)
+		}
+	})
+
+	t.Run("invalid path", func(t *testing.T) {
+		opts := &Options{configFilePath: "/invalid/path"}
+		cfg, err := NewRESTConfig(opts)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if cfg != nil {
+			t.Errorf("expected nil config, got %#v", cfg)
+		}
+	})
+}
+
+func TestNewClientset(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		opts := &Options{configFilePath: createTempKubeconfig(t)}
+		client, err := NewClientset(opts)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if client == nil {
+			t.Fatalf("expected client, got nil")
+		}
+	})
+
+	t.Run("rest config failure", func(t *testing.T) {
+		opts := &Options{configFilePath: "/invalid/path"}
+		client, err := NewClientset(opts)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if client != nil {
+			t.Errorf("expected nil client, got %#v", client)
+		}
+	})
+}
+
+func TestNewClientsetWithRestConfig(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		opts := &Options{configFilePath: createTempKubeconfig(t)}
+		client, cfg, err := NewClientsetWithRestConfig(opts)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if client == nil || cfg == nil {
+			t.Fatalf("expected client and config, got %v %v", client, cfg)
+		}
+	})
+
+	t.Run("rest config failure", func(t *testing.T) {
+		opts := &Options{configFilePath: "/invalid/path"}
+		client, cfg, err := NewClientsetWithRestConfig(opts)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if client != nil || cfg != nil {
+			t.Errorf("expected nil client and config, got %v %v", client, cfg)
+		}
+	})
 }
