@@ -30,9 +30,9 @@ package rebalancepods
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/norseto/k8s-watchdogs/internal/rebalancer"
 	"github.com/norseto/k8s-watchdogs/pkg/generics"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
@@ -58,14 +58,14 @@ func NewCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			// Security: Validate namespace parameter
-			if err := validateNamespace(opts.Namespace()); err != nil {
+			if err := validation.ValidateNamespace(opts.Namespace()); err != nil {
 				logger.FromContext(ctx).Error(err, "invalid namespace parameter")
 				return fmt.Errorf("invalid namespace: %w", err)
 			}
 
 			// Security: Validate rate parameter
-			if rate < 0 || rate > 1.0 {
-				return fmt.Errorf("invalid rebalance rate: %f (must be between 0 and 1.0)", rate)
+			if err := validation.ValidateRebalanceRate(rate); err != nil {
+				return err
 			}
 
 			cmd.SilenceUsage = true
@@ -149,21 +149,6 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 	}
 
 	log.Info("Rebalanced replicasets", "count", numRebalanced, "total", len(rs))
-	return nil
-}
-
-// validateNamespace validates the namespace parameter for security
-func validateNamespace(namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
-	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
-		return fmt.Errorf("invalid namespace format")
-	}
-
 	return nil
 }
 

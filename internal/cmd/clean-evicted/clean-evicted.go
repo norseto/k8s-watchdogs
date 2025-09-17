@@ -27,11 +27,11 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -71,7 +71,7 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 	log := logger.FromContext(ctx)
 
 	// Security: Validate namespace parameter
-	if err := validateNamespace(namespace); err != nil {
+	if err := validation.ValidateNamespace(namespace); err != nil {
 		log.Error(err, "invalid namespace parameter")
 		return fmt.Errorf("invalid namespace: %w", err)
 	}
@@ -113,20 +113,5 @@ func cleanEvictedPods(ctx context.Context, client kubernetes.Interface, namespac
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to delete %d pods", len(errs))
 	}
-	return nil
-}
-
-// validateNamespace validates the namespace parameter for security
-func validateNamespace(namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
-	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
-		return fmt.Errorf("invalid namespace format")
-	}
-
 	return nil
 }

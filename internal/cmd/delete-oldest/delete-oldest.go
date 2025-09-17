@@ -27,10 +27,10 @@ package deleteoldest
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -57,7 +57,7 @@ func NewCommand() *cobra.Command {
 			}
 
 			// Security: Validate prefix parameter
-			if err := validatePodPrefix(prefix); err != nil {
+			if err := validation.ValidatePodPrefix(prefix); err != nil {
 				logger.FromContext(cmd.Context()).Error(err, "invalid prefix parameter")
 				return fmt.Errorf("invalid prefix: %w", err)
 			}
@@ -94,7 +94,7 @@ func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespac
 	log := logger.FromContext(ctx)
 
 	// Security: Validate namespace parameter
-	if err := validateNamespace(namespace); err != nil {
+	if err := validation.ValidateNamespace(namespace); err != nil {
 		log.Error(err, "invalid namespace parameter")
 		return fmt.Errorf("invalid namespace: %w", err)
 	}
@@ -121,40 +121,6 @@ func deleteOldestPods(ctx context.Context, client kubernetes.Interface, namespac
 		return fmt.Errorf("failed to delete pod: %w", err)
 	}
 	log.Info("removed oldest pod", "pod", fmt.Sprintf("%s/%s", picked.Namespace, picked.Name))
-
-	return nil
-}
-
-// validatePodPrefix validates the pod prefix parameter for security
-func validatePodPrefix(prefix string) error {
-	if prefix == "" {
-		return fmt.Errorf("prefix cannot be empty")
-	}
-
-	if len(prefix) > 50 {
-		return fmt.Errorf("prefix too long: %d characters", len(prefix))
-	}
-
-	// Kubernetes pod naming rules: lowercase alphanumeric, hyphens, and dots
-	validPrefix := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?`)
-	if !validPrefix.MatchString(prefix) {
-		return fmt.Errorf("invalid prefix format")
-	}
-
-	return nil
-}
-
-// validateNamespace validates the namespace parameter for security
-func validateNamespace(namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
-	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
-		return fmt.Errorf("invalid namespace format")
-	}
 
 	return nil
 }

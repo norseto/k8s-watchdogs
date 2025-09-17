@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -231,9 +232,9 @@ func TestNewCommand(t *testing.T) {
 }
 
 func TestValidateNamespace(t *testing.T) {
-	assert.Error(t, validateNamespace(""))
-	assert.Error(t, validateNamespace("Invalid*"))
-	assert.NoError(t, validateNamespace("test-ns"))
+	assert.Error(t, validation.ValidateNamespace(""))
+	assert.Error(t, validation.ValidateNamespace("Invalid*"))
+	assert.NoError(t, validation.ValidateNamespace("test-ns"))
 }
 
 func TestGetTargetReplicaSets(t *testing.T) {

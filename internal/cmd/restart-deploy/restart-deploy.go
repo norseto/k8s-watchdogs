@@ -27,9 +27,9 @@ package restartdeploy
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"github.com/norseto/k8s-watchdogs/internal/options"
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/norseto/k8s-watchdogs/pkg/kube"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -51,14 +51,14 @@ func NewCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			// Security: Validate namespace parameter
-			if err := validateNamespace(opts.Namespace()); err != nil {
+			if err := validation.ValidateNamespace(opts.Namespace()); err != nil {
 				logger.FromContext(ctx).Error(err, "invalid namespace parameter")
 				return fmt.Errorf("invalid namespace: %w", err)
 			}
 
 			// Security: Validate deployment names
 			for _, name := range args {
-				if err := validateResourceName(name); err != nil {
+				if err := validation.ValidateResourceName(name); err != nil {
 					logger.FromContext(ctx).Error(err, "invalid deployment name", "name", name)
 					return fmt.Errorf("invalid deployment name %s: %w", name, err)
 				}
@@ -168,39 +168,5 @@ func restartDeployment(ctx context.Context, client kubernetes.Interface, namespa
 		}
 		log.Info("Restarted deployment", "deployment", target, "namespace", namespace)
 	}
-	return nil
-}
-
-// validateResourceName validates Kubernetes resource names for security
-func validateResourceName(name string) error {
-	if name == "" {
-		return fmt.Errorf("resource name cannot be empty")
-	}
-
-	if len(name) > 253 {
-		return fmt.Errorf("resource name too long: %d characters", len(name))
-	}
-
-	// Kubernetes resource naming rules: lowercase alphanumeric, hyphens, and dots
-	validName := regexp.MustCompile(`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`)
-	if !validName.MatchString(name) {
-		return fmt.Errorf("invalid resource name format")
-	}
-
-	return nil
-}
-
-// validateNamespace validates the namespace parameter for security
-func validateNamespace(namespace string) error {
-	if namespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
-	}
-
-	// Kubernetes namespace naming rules: lowercase alphanumeric and hyphens, max 63 chars
-	validNamespace := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-	if !validNamespace.MatchString(namespace) || len(namespace) > 63 {
-		return fmt.Errorf("invalid namespace format")
-	}
-
 	return nil
 }

@@ -30,6 +30,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +58,7 @@ func TestValidateResourceName(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateResourceName(tc.input)
+			err := validation.ValidateResourceName(tc.input)
 			if tc.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -82,7 +83,7 @@ func TestValidateNamespace(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateNamespace(tc.input)
+			err := validation.ValidateNamespace(tc.input)
 			if tc.wantErr {
 				assert.Error(t, err)
 			} else {

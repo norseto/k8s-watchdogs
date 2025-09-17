@@ -29,6 +29,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -149,7 +150,7 @@ func TestValidatePodPrefix(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			err := validatePodPrefix(tt.prefix)
+			err := validation.ValidatePodPrefix(tt.prefix)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validatePodPrefix(%q) error = %v, wantErr %v", tt.prefix, err, tt.wantErr)
 			}
@@ -170,7 +171,7 @@ func TestValidateNamespace(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateNamespace(tt.namespace)
+			err := validation.ValidateNamespace(tt.namespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateNamespace(%q) error = %v, wantErr %v", tt.namespace, err, tt.wantErr)
 			}
