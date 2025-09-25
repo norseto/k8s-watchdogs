@@ -51,6 +51,7 @@
     "type=volume,consistency=delegated,source=vscode-go-sdk-1-24,target=/usr/local/go",
     "type=volume,consistency=delegated,source=vscode-go-path-bin-1-24,target=/go/bin",
     "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
-    "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache"
+    "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
+    "type=volume,consistency=delegated,source=codex_volume,target=/home/vscode/.codex"
   ]
 }
