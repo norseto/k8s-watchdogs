@@ -26,6 +26,7 @@ package restartdeploy
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -55,6 +56,25 @@ func TestNewCommand(t *testing.T) {
 		assert.NotNil(t, allFlag, "Expected --all flag to exist")
 		assert.Equal(t, "a", allFlag.Shorthand, "Expected shorthand for --all to be -a")
 	})
+
+	t.Run("args validation requires names without all flag", func(t *testing.T) {
+		cmd := NewCommand()
+
+		err := cmd.Args(cmd, []string{})
+
+		assert.Error(t, err)
+	})
+
+	t.Run("args validation allows empty when all flag set", func(t *testing.T) {
+		cmd := NewCommand()
+
+		err := cmd.Flags().Set("all", "true")
+		assert.NoError(t, err)
+
+		argErr := cmd.Args(cmd, []string{})
+
+		assert.NoError(t, argErr)
+	})
 }
 
 func TestRestartDeployment(t *testing.T) {
@@ -83,6 +103,28 @@ func TestRestartDeployment(t *testing.T) {
 	t.Run("restart invalid deployment", func(t *testing.T) {
 		err := restartDeployment(testCtx, mockClient, "default", []string{"invalid-deployment"})
 		assert.NotNil(t, err)
+	})
+
+	t.Run("too many targets", func(t *testing.T) {
+		var names []string
+		for i := 0; i < 51; i++ {
+			names = append(names, fmt.Sprintf("deployment-%d", i))
+		}
+
+		err := restartDeployment(testCtx, mockClient, "default", names)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("restart deployment patch error", func(t *testing.T) {
+		failingClient := fake.NewSimpleClientset(deployment)
+		failingClient.PrependReactor("patch", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, assert.AnError
+		})
+
+		err := restartDeployment(testCtx, failingClient, "default", []string{"test-deployment"})
+
+		assert.Error(t, err)
 	})
 }
 
@@ -149,5 +191,24 @@ func TestRestartAllDeployments(t *testing.T) {
 		// Verify that both deployments were attempted to be patched
 		assert.True(t, patchCalls["deployment-1"], "Expected deployment-1 to be restarted")
 		assert.True(t, patchCalls["deployment-2"], "Expected deployment-2 to be attempted to be restarted")
+	})
+
+	t.Run("no deployments available", func(t *testing.T) {
+		emptyClient := fake.NewSimpleClientset()
+
+		err := restartAllDeployments(ctx, emptyClient, "default")
+
+		assert.NoError(t, err)
+	})
+
+	t.Run("list deployments failure", func(t *testing.T) {
+		errClient := fake.NewSimpleClientset()
+		errClient.PrependReactor("list", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			return true, nil, assert.AnError
+		})
+
+		err := restartAllDeployments(ctx, errClient, "default")
+
+		assert.Error(t, err)
 	})
 }
