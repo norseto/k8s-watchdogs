@@ -166,6 +166,24 @@ func TestCleanEvictedPodsInvalidNamespace(t *testing.T) {
 	assert.Empty(t, client.Actions())
 }
 
+func TestCleanEvictedPodsListError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, fmt.Errorf("synthetic list error")
+	})
+
+	err := cleanEvictedPods(context.Background(), client, "test")
+
+	assert.Error(t, err)
+
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "pods") {
+			t.Fatalf("unexpected delete action after list error: %#v", action)
+		}
+	}
+}
+
 // TestValidateNamespace tests namespace validation.
 func TestValidateNamespace(t *testing.T) {
 	tests := []struct {
