@@ -26,13 +26,16 @@ package deleteoldest
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestDeleteOldestPods(t *testing.T) {
@@ -68,6 +71,99 @@ func TestDeleteOldestPods(t *testing.T) {
 	err = deleteOldestPods(ctx, client, "test-ns", "test-pod", 1)
 	if err != nil {
 		t.Errorf("Expected nil, but got %v", err)
+	}
+}
+
+func TestDeleteOldestPods_ValidationError(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	namespace := "Invalid_Namespace"
+
+	err := deleteOldestPods(ctx, client, namespace, "test", 1)
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	unwrapped := errors.Unwrap(err)
+	if unwrapped == nil {
+		t.Fatalf("expected wrapped validation error, but got nil")
+	}
+
+	expected := validation.ValidateNamespace(namespace)
+	if unwrapped.Error() != expected.Error() {
+		t.Fatalf("expected validation error %q, got %q", expected.Error(), unwrapped.Error())
+	}
+}
+
+func TestDeleteOldestPods_ListPodsError(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset()
+	listErr := errors.New("list pods failed")
+	client.PrependReactor("list", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, listErr
+	})
+
+	err := deleteOldestPods(ctx, client, "valid-ns", "test", 1)
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	if !errors.Is(err, listErr) {
+		t.Fatalf("expected error to wrap list error, but got %v", err)
+	}
+}
+
+func TestDeleteOldestPods_InvalidPickedPod(t *testing.T) {
+	ctx := context.Background()
+	client := fake.NewSimpleClientset(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-pod", Namespace: "valid-ns"},
+	})
+
+	err := deleteOldestPods(ctx, client, "valid-ns", "match", 0)
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	if err.Error() != "invalid pod selected for deletion" {
+		t.Fatalf("expected invalid pod selection error, but got %v", err)
+	}
+}
+
+func TestDeleteOldestPods_DeletePodError(t *testing.T) {
+	ctx := context.Background()
+	now := metav1.Now()
+	deleteErr := errors.New("delete pod failed")
+	client := fake.NewSimpleClientset(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pod-1", Namespace: "valid-ns"},
+		Status: corev1.PodStatus{
+			StartTime:  &metav1.Time{Time: now.Add(-10)},
+			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+			Phase:      corev1.PodRunning,
+		},
+	}, &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pod-2", Namespace: "valid-ns"},
+		Status: corev1.PodStatus{
+			StartTime:  &metav1.Time{Time: now.Add(-20)},
+			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+			Phase:      corev1.PodRunning,
+		},
+	})
+	client.PrependReactor("delete", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, deleteErr
+	})
+
+	err := deleteOldestPods(ctx, client, "valid-ns", "test-pod", 1)
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	if !errors.Is(err, deleteErr) {
+		t.Fatalf("expected error to wrap delete error, but got %v", err)
+	}
+
+	wrapped := errors.Unwrap(err)
+	if wrapped == nil || !strings.Contains(wrapped.Error(), "failed to delete Pod") {
+		t.Fatalf("expected wrapped error to include delete failure message, but got %v", wrapped)
 	}
 }
 
