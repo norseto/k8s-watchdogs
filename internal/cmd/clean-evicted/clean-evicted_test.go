@@ -126,6 +126,37 @@ func TestCleanEvictedPods(t *testing.T) {
 	}
 }
 
+func TestCleanEvictedPodsSkipsPodsWithoutName(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test"},
+			Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+		},
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "valid"},
+			Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+		},
+	)
+
+	err := cleanEvictedPods(context.Background(), client, "test")
+	assert.NoError(t, err)
+
+	var deleted []string
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "pods") {
+			deleteAction := action.(k8stesting.DeleteAction)
+			deleted = append(deleted, deleteAction.GetName())
+		}
+	}
+
+	assert.Equal(t, []string{"valid"}, deleted)
+
+	pods, err := client.CoreV1().Pods("test").List(context.Background(), metav1.ListOptions{})
+	assert.NoError(t, err)
+	assert.Len(t, pods.Items, 1)
+	assert.Equal(t, "", pods.Items[0].Name)
+}
+
 // TestCleanEvictedPodsLimit verifies deletion is capped at 100 pods.
 func TestCleanEvictedPodsLimit(t *testing.T) {
 	client := fake.NewSimpleClientset()
