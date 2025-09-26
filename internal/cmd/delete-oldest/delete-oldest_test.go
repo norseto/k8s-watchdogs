@@ -32,6 +32,7 @@ import (
 	"testing"
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -230,6 +231,38 @@ func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
 	if cmd == nil {
 		t.Errorf("Expected command, but got nil")
+	}
+}
+
+func TestNewCommand_ClientCreationError(t *testing.T) {
+	t.Setenv("KUBECONFIG", "/invalid/path")
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBERNETES_SERVICE_PORT", "")
+
+	cmd := NewCommand()
+	if cmd == nil {
+		t.Fatalf("expected command, but got nil")
+	}
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	ctx := client.WithContext(context.Background(), &client.Options{})
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--namespace", "valid-ns", "--prefix", "test", "--minPods", "1"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), "failed to create client") {
+		t.Fatalf("expected client creation error, but got %v", err)
+	}
+
+	if !cmd.SilenceUsage {
+		t.Fatalf("expected SilenceUsage to be true after attempting client creation")
 	}
 }
 
