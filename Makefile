@@ -60,22 +60,26 @@ GOLANGCI_LINT_VERSION ?= v2.4.0
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	# Run in module root so toolchain from go.mod is honored.
+	GOBIN=$(LOCALBIN) go -C . install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: govulncheck
 govulncheck: $(GOVULNCHECK) ## Download govulncheck locally if necessary.
 $(GOVULNCHECK): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	# Run in module root so toolchain from go.mod is honored.
+	GOBIN=$(LOCALBIN) go -C . install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 
 .PHONY: gosec
 gosec: $(GOSEC) ## Download gosec locally if necessary.
 $(GOSEC): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+	# Run in module root so toolchain from go.mod is honored.
+	GOBIN=$(LOCALBIN) go -C . install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	# Run in module root so toolchain from go.mod is honored.
+	GOBIN=$(LOCALBIN) go -C . install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: docker-buildx-setup
 docker-buildx-setup: ## Setup buildx builder for multi-arch builds.
