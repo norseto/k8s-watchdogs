@@ -1,3 +1,4 @@
 {
-    "ninetyfive.indexingEnabled": "on"
+    "ninetyfive.indexingEnabled": "on",
+    "go.goroot": "/usr/local/go"
 }
