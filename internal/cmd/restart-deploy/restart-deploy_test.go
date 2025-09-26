@@ -26,14 +26,17 @@ package restartdeploy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -41,6 +44,36 @@ import (
 
 // Common context used in tests
 var testCtx = context.TODO()
+
+func swapNewClientset(t *testing.T, factory func(*client.Options) (kubernetes.Interface, error)) func() {
+	t.Helper()
+
+	original := newClientset
+	newClientset = factory
+
+	return func() {
+		newClientset = original
+	}
+}
+
+func useFakeClientset(t *testing.T, objects ...runtime.Object) (*fake.Clientset, func()) {
+	t.Helper()
+
+	fakeClient := fake.NewSimpleClientset(objects...)
+	restore := swapNewClientset(t, func(*client.Options) (kubernetes.Interface, error) {
+		return fakeClient, nil
+	})
+
+	return fakeClient, restore
+}
+
+func convertToRuntimeObjects(deployments []*v1.Deployment) []runtime.Object {
+	objects := make([]runtime.Object, len(deployments))
+	for i, dep := range deployments {
+		objects[i] = dep.DeepCopy()
+	}
+	return objects
+}
 
 // TestNewCommand validates the NewCommand function
 func TestNewCommand(t *testing.T) {
@@ -104,6 +137,114 @@ func TestNewCommandRunEValidation(t *testing.T) {
 		runErr := cmd.RunE(cmd, []string{"Invalid_Name"})
 		assert.Error(t, runErr)
 		assert.Contains(t, runErr.Error(), "invalid deployment name")
+	})
+
+	t.Run("restart all patches every deployment", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		err = cmd.Flags().Set("all", "true")
+		assert.NoError(t, err)
+
+		deployments := []*v1.Deployment{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-a",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-b",
+					Namespace: "default",
+				},
+			},
+		}
+
+		fakeClient, restore := useFakeClientset(t, convertToRuntimeObjects(deployments)...)
+		defer restore()
+
+		patched := make(map[string]int)
+		fakeClient.PrependReactor("patch", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patched[name]++
+			return true, &v1.Deployment{}, nil
+		})
+
+		runErr := cmd.RunE(cmd, nil)
+		assert.NoError(t, runErr)
+
+		for _, dep := range deployments {
+			assert.Equal(t, 1, patched[dep.Name])
+		}
+	})
+
+	t.Run("only targeted deployments are patched", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		deployments := []*v1.Deployment{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-a",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-b",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment-c",
+					Namespace: "default",
+				},
+			},
+		}
+
+		fakeClient, restore := useFakeClientset(t, convertToRuntimeObjects(deployments)...)
+		defer restore()
+
+		patched := make(map[string]int)
+		fakeClient.PrependReactor("patch", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patched[name]++
+			return true, &v1.Deployment{}, nil
+		})
+
+		runErr := cmd.RunE(cmd, []string{"deployment-a", "deployment-c"})
+		assert.NoError(t, runErr)
+
+		assert.Equal(t, 1, patched["deployment-a"])
+		assert.Equal(t, 1, patched["deployment-c"])
+		assert.Zero(t, patched["deployment-b"])
+	})
+
+	t.Run("client creation error is returned", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		restore := swapNewClientset(t, func(*client.Options) (kubernetes.Interface, error) {
+			return nil, errors.New("boom")
+		})
+		defer restore()
+
+		runErr := cmd.RunE(cmd, []string{"valid-deploy"})
+		assert.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "failed to create client: boom")
 	})
 }
 

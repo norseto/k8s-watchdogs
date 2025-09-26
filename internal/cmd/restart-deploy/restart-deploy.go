@@ -38,6 +38,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var newClientset = func(opts *client.Options) (kubernetes.Interface, error) {
+	return client.NewClientset(opts)
+}
+
 // NewCommand returns a new Cobra command for re-balancing pods.
 func NewCommand() *cobra.Command {
 	opts := &options.Options{}
@@ -66,7 +70,7 @@ func NewCommand() *cobra.Command {
 
 			cmd.SilenceUsage = true
 
-			clnt, err := client.NewClientset(client.FromContext(ctx))
+			clnt, err := newClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return fmt.Errorf("failed to create client: %w", err)
