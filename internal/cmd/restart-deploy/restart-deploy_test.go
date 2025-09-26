@@ -29,12 +29,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // Common context used in tests
@@ -74,6 +76,34 @@ func TestNewCommand(t *testing.T) {
 		argErr := cmd.Args(cmd, []string{})
 
 		assert.NoError(t, argErr)
+	})
+}
+
+func TestNewCommandRunEValidation(t *testing.T) {
+	ctx := logger.WithContext(context.Background(), zap.New())
+
+	t.Run("invalid namespace flag", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "Invalid_Namespace")
+		assert.NoError(t, err)
+
+		runErr := cmd.RunE(cmd, []string{"valid-name"})
+		assert.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "invalid namespace")
+	})
+
+	t.Run("invalid deployment name", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		runErr := cmd.RunE(cmd, []string{"Invalid_Name"})
+		assert.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "invalid deployment name")
 	})
 }
 
