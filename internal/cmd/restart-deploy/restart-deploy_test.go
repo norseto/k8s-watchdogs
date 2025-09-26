@@ -276,6 +276,18 @@ func TestRestartDeployment(t *testing.T) {
 		assert.NotNil(t, err)
 	})
 
+	t.Run("restart missing deployment without get error", func(t *testing.T) {
+		missingClient := fake.NewSimpleClientset()
+		missingClient.PrependReactor("get", "deployments", func(action ktesting.Action) (bool, runtime.Object, error) {
+			var obj *v1.Deployment
+			return true, obj, nil
+		})
+
+		err := restartDeployment(testCtx, missingClient, "default", []string{"missing-deployment"})
+
+		assert.EqualError(t, err, "deployment default/missing-deployment not found")
+	})
+
 	t.Run("too many targets", func(t *testing.T) {
 		var names []string
 		for i := 0; i < 51; i++ {
