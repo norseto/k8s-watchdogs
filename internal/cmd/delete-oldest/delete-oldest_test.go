@@ -25,6 +25,7 @@ SOFTWARE.
 package deleteoldest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -229,6 +230,31 @@ func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
 	if cmd == nil {
 		t.Errorf("Expected command, but got nil")
+	}
+}
+
+func TestNewCommand_EarlyExitWithoutPrefix(t *testing.T) {
+	cmd := NewCommand()
+	if cmd == nil {
+		t.Fatalf("expected command, but got nil")
+	}
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--namespace", "test-ns"})
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("expected nil error, but got %v", err)
+	}
+
+	if buf.Len() == 0 {
+		t.Fatalf("expected usage output, but buffer was empty")
+	}
+
+	if cmd.SilenceUsage {
+		t.Fatalf("expected SilenceUsage to remain false")
 	}
 }
 
