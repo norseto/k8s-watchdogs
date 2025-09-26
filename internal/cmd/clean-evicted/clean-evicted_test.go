@@ -126,6 +126,38 @@ func TestCleanEvictedPods(t *testing.T) {
 	}
 }
 
+func TestCleanEvictedPodsAggregatesDeleteErrors(t *testing.T) {
+	client := fake.NewSimpleClientset(
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod-1"},
+			Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+		},
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "pod-2"},
+			Status:     v1.PodStatus{Phase: v1.PodFailed, Reason: "Evicted"},
+		},
+	)
+
+	client.PrependReactor("delete", "pods", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, fmt.Errorf("synthetic delete failure")
+	})
+
+	err := cleanEvictedPods(context.Background(), client, "test")
+
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "failed to delete 2 pods")
+	}
+
+	deleteActions := 0
+	for _, action := range client.Actions() {
+		if action.Matches("delete", "pods") {
+			deleteActions++
+		}
+	}
+
+	assert.Equal(t, 2, deleteActions)
+}
+
 func TestCleanEvictedPodsSkipsPodsWithoutName(t *testing.T) {
 	client := fake.NewSimpleClientset(
 		&v1.Pod{
