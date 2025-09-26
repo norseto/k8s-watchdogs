@@ -258,6 +258,31 @@ func TestNewCommand_EarlyExitWithoutPrefix(t *testing.T) {
 	}
 }
 
+func TestNewCommand_MinPodsTooHigh(t *testing.T) {
+	cmd := NewCommand()
+	if cmd == nil {
+		t.Fatalf("expected command, but got nil")
+	}
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs([]string{"--namespace", "test-ns", "--prefix", "test", "--minPods", "1001"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), "minPods value too high for safety") {
+		t.Fatalf("expected minPods safety error, but got %v", err)
+	}
+
+	if cmd.SilenceUsage {
+		t.Fatalf("expected SilenceUsage to remain false when guard triggers")
+	}
+}
+
 func TestValidatePodPrefix(t *testing.T) {
 	tests := []struct {
 		name    string
