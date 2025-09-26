@@ -27,6 +27,7 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -151,6 +152,18 @@ func TestCleanEvictedPodsLimit(t *testing.T) {
 	pods, err := client.CoreV1().Pods("test").List(context.Background(), metav1.ListOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, 50, len(pods.Items))
+}
+
+func TestCleanEvictedPodsInvalidNamespace(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	err := cleanEvictedPods(context.Background(), client, "Invalid_Namespace")
+
+	if assert.Error(t, err) {
+		assert.True(t, strings.HasPrefix(err.Error(), "invalid namespace"))
+	}
+
+	assert.Empty(t, client.Actions())
 }
 
 // TestValidateNamespace tests namespace validation.
