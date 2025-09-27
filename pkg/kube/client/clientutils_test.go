@@ -41,37 +41,46 @@ func init() {
 
 func TestGetKubeconfig(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func(t *testing.T)
-		expected string
-		source   kubeconfigSource
+		name           string
+		setup          func(t *testing.T) string
+		expectedSource kubeconfigSource
 	}{
 		{
 			name: "HOME path exists",
-			setup: func(t *testing.T) {
-				t.Setenv("HOME", "/home/mock")
+			setup: func(t *testing.T) string {
+				homeDir := t.TempDir()
+				kubeDir := filepath.Join(homeDir, ".kube")
+				if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+					t.Fatalf("failed to create kube dir: %v", err)
+				}
+				kubeconfigPath := filepath.Join(kubeDir, "config")
+				if err := os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0o600); err != nil {
+					t.Fatalf("failed to create kubeconfig: %v", err)
+				}
+				t.Setenv("HOME", homeDir)
 				t.Setenv("KUBECONFIG", "")
+				return kubeconfigPath
 			},
-			expected: "/home/mock/.kube/config",
-			source:   kubeconfigSourceDefault,
+			expectedSource: kubeconfigSourceDefault,
 		},
 		{
 			name: "KUBECONFIG set",
-			setup: func(t *testing.T) {
+			setup: func(t *testing.T) string {
 				t.Setenv("HOME", "")
-				t.Setenv("KUBECONFIG", "/home/mock/.kube/config2")
+				kubeconfigPath := createTempKubeconfig(t)
+				t.Setenv("KUBECONFIG", kubeconfigPath)
+				return kubeconfigPath
 			},
-			expected: "/home/mock/.kube/config2",
-			source:   kubeconfigSourceEnv,
+			expectedSource: kubeconfigSourceEnv,
 		},
 		{
 			name: "Neither HOME, nor KUBECONFIG are set",
-			setup: func(t *testing.T) {
+			setup: func(t *testing.T) string {
 				t.Setenv("HOME", "")
 				t.Setenv("KUBECONFIG", "")
+				return ""
 			},
-			expected: "",
-			source:   kubeconfigSourceNone,
+			expectedSource: kubeconfigSourceNone,
 		},
 	}
 
@@ -83,7 +92,7 @@ func TestGetKubeconfig(t *testing.T) {
 			if err := flag.CommandLine.Parse([]string{}); err != nil {
 				t.Fatalf("failed to parse flags: %v", err)
 			}
-			tt.setup(t)
+			expectedPath := tt.setup(t)
 			defer func() {
 				flag.CommandLine = backup
 			}()
@@ -91,11 +100,14 @@ func TestGetKubeconfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if result != tt.expected {
-				t.Errorf("expected %s, got %s", tt.expected, result)
+			if expectedPath != "" && result != expectedPath {
+				t.Errorf("expected %s, got %s", expectedPath, result)
 			}
-			if source != tt.source {
-				t.Errorf("expected source %v, got %v", tt.source, source)
+			if expectedPath == "" && result != "" {
+				t.Errorf("expected empty result, got %s", result)
+			}
+			if source != tt.expectedSource {
+				t.Errorf("expected source %v, got %v", tt.expectedSource, source)
 			}
 		})
 	}
@@ -110,6 +122,101 @@ func TestGetKubeconfigValidationError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--kubeconfig flag") {
 		t.Fatalf("expected error to mention flag source, got %v", err)
+	}
+}
+
+func TestGetKubeconfigSymlinkResolution(t *testing.T) {
+	dir := t.TempDir()
+	targetDir := filepath.Join(dir, "target")
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		t.Fatalf("failed to create target dir: %v", err)
+	}
+	targetFile := filepath.Join(targetDir, "config")
+	if err := os.WriteFile(targetFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	symlinkPath := filepath.Join(dir, "link")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	opts := &Options{configFilePath: symlinkPath}
+	resolved, source, err := opts.GetConfigFilePath()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resolved != targetFile {
+		t.Fatalf("expected resolved path %s, got %s", targetFile, resolved)
+	}
+	if source != kubeconfigSourceFlag {
+		t.Fatalf("expected kubeconfigSourceFlag, got %v", source)
+	}
+}
+
+func TestGetKubeconfigDeniedPrefix(t *testing.T) {
+	dir := t.TempDir()
+	sensitiveDir := filepath.Join(dir, "sensitive")
+	if err := os.MkdirAll(sensitiveDir, 0o755); err != nil {
+		t.Fatalf("failed to create sensitive dir: %v", err)
+	}
+	sensitiveFile := filepath.Join(sensitiveDir, "config")
+	if err := os.WriteFile(sensitiveFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	opts := &Options{configFilePath: sensitiveFile}
+	opts.SetPathPrefixDenyList([]string{sensitiveDir})
+
+	if _, _, err := opts.GetConfigFilePath(); err == nil {
+		t.Fatalf("expected error for denied prefix, got nil")
+	}
+}
+
+func TestGetKubeconfigDeniedPrefixViaSymlink(t *testing.T) {
+	dir := t.TempDir()
+	sensitiveDir := filepath.Join(dir, "sensitive")
+	if err := os.MkdirAll(sensitiveDir, 0o755); err != nil {
+		t.Fatalf("failed to create sensitive dir: %v", err)
+	}
+	sensitiveFile := filepath.Join(sensitiveDir, "config")
+	if err := os.WriteFile(sensitiveFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	allowedDir := filepath.Join(dir, "allowed")
+	if err := os.MkdirAll(allowedDir, 0o755); err != nil {
+		t.Fatalf("failed to create allowed dir: %v", err)
+	}
+	symlinkPath := filepath.Join(allowedDir, "config")
+	if err := os.Symlink(sensitiveFile, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	opts := &Options{configFilePath: symlinkPath}
+	opts.SetPathPrefixDenyList([]string{sensitiveDir})
+
+	if _, _, err := opts.GetConfigFilePath(); err == nil {
+		t.Fatalf("expected error for denied prefix via symlink, got nil")
+	}
+}
+
+func TestGetKubeconfigAllowedPrefix(t *testing.T) {
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "config")
+	if err := os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	opts := &Options{configFilePath: kubeconfigPath}
+	opts.SetPathPrefixAllowList([]string{dir})
+
+	resolved, _, err := opts.GetConfigFilePath()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if resolved != kubeconfigPath {
+		t.Fatalf("expected resolved path %s, got %s", kubeconfigPath, resolved)
 	}
 }
 
