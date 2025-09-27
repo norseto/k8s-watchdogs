@@ -26,6 +26,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -40,7 +41,19 @@ import (
 
 // Options represents the configuration options for a kubernetes client.
 type Options struct {
-	configFilePath string
+	configFilePath      string
+	allowedPathPrefixes []string
+	deniedPathPrefixes  []string
+}
+
+// SetPathPrefixAllowList sets the allow list for kubeconfig path prefixes.
+func (o *Options) SetPathPrefixAllowList(prefixes []string) {
+	o.allowedPathPrefixes = clonePrefixes(prefixes)
+}
+
+// SetPathPrefixDenyList sets the deny list for kubeconfig path prefixes.
+func (o *Options) SetPathPrefixDenyList(prefixes []string) {
+	o.deniedPathPrefixes = clonePrefixes(prefixes)
 }
 
 type kubeconfigSource int
@@ -106,18 +119,50 @@ func (o *Options) GetConfigFilePath() (string, kubeconfigSource, error) {
 		return "", kubeconfigSourceNone, nil
 	}
 
-	cleanPath := filepath.Clean(path)
-
-	if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") ||
-		strings.HasPrefix(cleanPath, "/sys") {
-		if source.explicit() {
-			return "", source, fmt.Errorf("kubeconfig path %q from %s failed validation", path, source)
-		}
-
-		return "", kubeconfigSourceNone, nil
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return handleImplicitPathError(path, source, err)
 	}
 
-	return cleanPath, source, nil
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && !source.explicit() {
+			return "", kubeconfigSourceNone, nil
+		}
+		return handleImplicitPathError(path, source, err)
+	}
+
+	resolvedPath = filepath.Clean(resolvedPath)
+
+	if strings.Contains(resolvedPath, "..") {
+		return handleImplicitPathError(path, source, fmt.Errorf("path traversal detected"))
+	}
+
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && !source.explicit() {
+			return "", kubeconfigSourceNone, nil
+		}
+		return handleImplicitPathError(path, source, err)
+	}
+
+	if !info.Mode().IsRegular() {
+		return handleImplicitPathError(path, source, fmt.Errorf("kubeconfig path %q must be a regular file", resolvedPath))
+	}
+
+	if !o.isAllowedPath(resolvedPath) {
+		return handleImplicitPathError(
+			path,
+			source,
+			fmt.Errorf("kubeconfig path %q is not under an allowed prefix", resolvedPath),
+		)
+	}
+
+	if o.isDeniedPath(resolvedPath) {
+		return handleImplicitPathError(path, source, fmt.Errorf("kubeconfig path %q is under a denied prefix", resolvedPath))
+	}
+
+	return resolvedPath, source, nil
 }
 
 type contextKey struct{}
@@ -138,6 +183,91 @@ func FromContext(ctx context.Context) *Options {
 func WithContext(ctx context.Context, opts *Options) context.Context {
 	return context.WithValue(ctx, contextKey{}, opts)
 }
+
+func handleImplicitPathError(
+	originalPath string,
+	source kubeconfigSource,
+	err error,
+) (string, kubeconfigSource, error) {
+	if source.explicit() {
+		return "", source, fmt.Errorf("kubeconfig path %q from %s failed validation: %w", originalPath, source, err)
+	}
+
+	return "", kubeconfigSourceNone, nil
+}
+
+func (o *Options) allowedPrefixes() []string {
+	if len(o.allowedPathPrefixes) == 0 {
+		return nil
+	}
+
+	return o.allowedPathPrefixes
+}
+
+func (o *Options) deniedPrefixes() []string {
+	if len(o.deniedPathPrefixes) == 0 {
+		return defaultDeniedPathPrefixes
+	}
+
+	return o.deniedPathPrefixes
+}
+
+func (o *Options) isAllowedPath(path string) bool {
+	prefixes := o.allowedPrefixes()
+	if len(prefixes) == 0 {
+		return true
+	}
+
+	for _, prefix := range prefixes {
+		if hasPathPrefix(path, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (o *Options) isDeniedPath(path string) bool {
+	for _, prefix := range o.deniedPrefixes() {
+		if hasPathPrefix(path, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasPathPrefix(path, prefix string) bool {
+	if prefix == "" {
+		return false
+	}
+
+	cleanedPath := filepath.Clean(path)
+	cleanedPrefix := filepath.Clean(prefix)
+
+	if cleanedPath == cleanedPrefix {
+		return true
+	}
+
+	sep := string(os.PathSeparator)
+	if !strings.HasSuffix(cleanedPrefix, sep) {
+		cleanedPrefix += sep
+	}
+
+	return strings.HasPrefix(cleanedPath, cleanedPrefix)
+}
+
+func clonePrefixes(prefixes []string) []string {
+	if len(prefixes) == 0 {
+		return nil
+	}
+
+	cloned := make([]string, len(prefixes))
+	copy(cloned, prefixes)
+	return cloned
+}
+
+var defaultDeniedPathPrefixes = []string{"/proc", "/sys"}
 
 // NewRESTConfig creates a new Kubernetes REST config based on the provided options.
 // It takes an `opts` pointer to an `Options` struct which contains the path to the kubeconfig file.
