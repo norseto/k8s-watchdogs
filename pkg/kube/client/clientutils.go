@@ -43,6 +43,32 @@ type Options struct {
 	configFilePath string
 }
 
+type kubeconfigSource int
+
+const (
+	kubeconfigSourceNone kubeconfigSource = iota
+	kubeconfigSourceFlag
+	kubeconfigSourceEnv
+	kubeconfigSourceDefault
+)
+
+func (s kubeconfigSource) String() string {
+	switch s {
+	case kubeconfigSourceFlag:
+		return "--kubeconfig flag"
+	case kubeconfigSourceEnv:
+		return "KUBECONFIG environment variable"
+	case kubeconfigSourceDefault:
+		return "default kubeconfig location"
+	default:
+		return ""
+	}
+}
+
+func (s kubeconfigSource) explicit() bool {
+	return s == kubeconfigSourceFlag || s == kubeconfigSourceEnv
+}
+
 // BindFlags adds the "kubeconfig" flag to the given FlagSet.
 // It binds the value of the flag to the configFilePath field of the Options struct.
 // The flag is used to specify the absolute path to the kubeconfig file.
@@ -59,34 +85,39 @@ func (o *Options) BindPFlags(fs *pflag.FlagSet) {
 }
 
 // GetConfigFilePath retrieves the kubeconfig file path with security validation.
-func (o *Options) GetConfigFilePath() string {
-	var path string
+// It returns the sanitized path, the source of the configuration, and an error if validation fails.
+func (o *Options) GetConfigFilePath() (string, kubeconfigSource, error) {
+	var (
+		path   string
+		source kubeconfigSource
+	)
 
-	if o.configFilePath != "" {
+	switch {
+	case o.configFilePath != "":
 		path = o.configFilePath
-	} else if envVar := os.Getenv("KUBECONFIG"); envVar != "" {
-		path = envVar
-	} else if home := os.Getenv("HOME"); home != "" {
-		path = filepath.Join(home, ".kube", "config")
-	} else {
-		return ""
+		source = kubeconfigSourceFlag
+	case os.Getenv("KUBECONFIG") != "":
+		path = os.Getenv("KUBECONFIG")
+		source = kubeconfigSourceEnv
+	case os.Getenv("HOME") != "":
+		path = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		source = kubeconfigSourceDefault
+	default:
+		return "", kubeconfigSourceNone, nil
 	}
 
-	// Security: Validate and clean the path to prevent path traversal attacks
-	if path != "" {
-		// Clean the path to resolve any .. or . components
-		cleanPath := filepath.Clean(path)
+	cleanPath := filepath.Clean(path)
 
-		// Ensure the path doesn't contain suspicious patterns
-		if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") ||
-			strings.HasPrefix(cleanPath, "/sys") {
-			return ""
+	if strings.Contains(cleanPath, "..") || strings.HasPrefix(cleanPath, "/proc") ||
+		strings.HasPrefix(cleanPath, "/sys") {
+		if source.explicit() {
+			return "", source, fmt.Errorf("kubeconfig path %q from %s failed validation", path, source)
 		}
 
-		return cleanPath
+		return "", kubeconfigSourceNone, nil
 	}
 
-	return ""
+	return cleanPath, source, nil
 }
 
 type contextKey struct{}
@@ -114,17 +145,28 @@ func WithContext(ctx context.Context, opts *Options) context.Context {
 // it uses `clientcmd.BuildConfigFromFlags` to build the config.
 // If the config is not specified or there is an error building it, it falls back to using `rest.InClusterConfig`.
 // The function returns the created REST config and an error if there was a failure.
-func NewRESTConfig(opts *Options) (config *rest.Config, err error) {
-	kubeconfig := opts.GetConfigFilePath()
-
-	if kubeconfig != "" {
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+func NewRESTConfig(opts *Options) (*rest.Config, error) {
+	kubeconfig, source, err := opts.GetConfigFilePath()
+	if err != nil {
+		return nil, err
 	}
 
-	if config == nil || err != nil {
-		config, err = rest.InClusterConfig()
+	switch source {
+	case kubeconfigSourceFlag, kubeconfigSourceEnv:
+		config, buildErr := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if buildErr != nil {
+			return nil, fmt.Errorf("failed to load kubeconfig from %s: %w", source, buildErr)
+		}
+		return config, nil
+	case kubeconfigSourceDefault:
+		if kubeconfig != "" {
+			if config, buildErr := clientcmd.BuildConfigFromFlags("", kubeconfig); buildErr == nil {
+				return config, nil
+			}
+		}
 	}
-	return
+
+	return rest.InClusterConfig()
 }
 
 // NewClientset creates a new Kubernetes clientset.

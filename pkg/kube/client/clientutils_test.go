@@ -29,6 +29,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -41,40 +42,36 @@ func init() {
 func TestGetKubeconfig(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func()
-		teardown func()
+		setup    func(t *testing.T)
 		expected string
+		source   kubeconfigSource
 	}{
 		{
 			name: "HOME path exists",
-			setup: func() {
-				_ = os.Setenv("HOME", "/home/mock")
-			},
-			teardown: func() {
-				_ = os.Unsetenv("Home")
+			setup: func(t *testing.T) {
+				t.Setenv("HOME", "/home/mock")
+				t.Setenv("KUBECONFIG", "")
 			},
 			expected: "/home/mock/.kube/config",
+			source:   kubeconfigSourceDefault,
 		},
 		{
 			name: "KUBECONFIG set",
-			setup: func() {
-				_ = os.Unsetenv("HOME")
-				_ = os.Setenv("KUBECONFIG", "/home/mock/.kube/config2")
-			},
-			teardown: func() {
-				_ = os.Unsetenv("KUBECONFIG")
+			setup: func(t *testing.T) {
+				t.Setenv("HOME", "")
+				t.Setenv("KUBECONFIG", "/home/mock/.kube/config2")
 			},
 			expected: "/home/mock/.kube/config2",
+			source:   kubeconfigSourceEnv,
 		},
 		{
 			name: "Neither HOME, nor KUBECONFIG are set",
-			setup: func() {
-				_ = os.Unsetenv("HOME")
-				_ = os.Unsetenv("KUBECONFIG")
-			},
-			teardown: func() {
+			setup: func(t *testing.T) {
+				t.Setenv("HOME", "")
+				t.Setenv("KUBECONFIG", "")
 			},
 			expected: "",
+			source:   kubeconfigSourceNone,
 		},
 	}
 
@@ -83,17 +80,36 @@ func TestGetKubeconfig(t *testing.T) {
 			opts := &Options{}
 			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 			opts.BindFlags(flag.CommandLine)
-			flag.Parse()
-			tt.setup()
+			if err := flag.CommandLine.Parse([]string{}); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+			tt.setup(t)
 			defer func() {
-				tt.teardown()
 				flag.CommandLine = backup
 			}()
-			result := opts.GetConfigFilePath()
+			result, source, err := opts.GetConfigFilePath()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if result != tt.expected {
 				t.Errorf("expected %s, got %s", tt.expected, result)
 			}
+			if source != tt.source {
+				t.Errorf("expected source %v, got %v", tt.source, source)
+			}
 		})
+	}
+}
+
+func TestGetKubeconfigValidationError(t *testing.T) {
+	opts := &Options{configFilePath: "/proc/1/status"}
+
+	_, _, err := opts.GetConfigFilePath()
+	if err == nil {
+		t.Fatalf("expected validation error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--kubeconfig flag") {
+		t.Fatalf("expected error to mention flag source, got %v", err)
 	}
 }
 
@@ -170,11 +186,29 @@ func TestNewRESTConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid path", func(t *testing.T) {
+	t.Run("invalid explicit path", func(t *testing.T) {
 		opts := &Options{configFilePath: "/invalid/path"}
 		cfg, err := NewRESTConfig(opts)
 		if err == nil {
 			t.Fatalf("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "--kubeconfig flag") {
+			t.Fatalf("expected error about flag source, got %v", err)
+		}
+		if cfg != nil {
+			t.Errorf("expected nil config, got %#v", cfg)
+		}
+	})
+
+	t.Run("invalid env path", func(t *testing.T) {
+		t.Setenv("KUBECONFIG", "/invalid/env/path")
+		opts := &Options{}
+		cfg, err := NewRESTConfig(opts)
+		if err == nil {
+			t.Fatalf("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "KUBECONFIG environment variable") {
+			t.Fatalf("expected error about env source, got %v", err)
 		}
 		if cfg != nil {
 			t.Errorf("expected nil config, got %#v", cfg)
