@@ -2,7 +2,7 @@ module github.com/norseto/k8s-watchdogs
 
 go 1.24.0
 
-toolchain go1.24.6
+toolchain go1.24.7
 
 require (
 	github.com/go-logr/logr v1.4.2
