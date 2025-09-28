@@ -135,6 +135,31 @@ func TestGetKubeconfigValidationError(t *testing.T) {
 	}
 }
 
+func TestGetKubeconfigPathTraversal(t *testing.T) {
+	tempDir := t.TempDir()
+	sneakyDir := filepath.Join(tempDir, "nested", "..sneaky")
+	if err := os.MkdirAll(sneakyDir, 0o755); err != nil {
+		t.Fatalf("failed to create sneaky directory: %v", err)
+	}
+
+	kubeconfigPath := filepath.Join(sneakyDir, "config")
+	if err := os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	opts := &Options{configFilePath: kubeconfigPath}
+	if _, _, err := opts.GetConfigFilePath(); err == nil {
+		t.Fatalf("expected path traversal validation error, got nil")
+	} else {
+		if !strings.Contains(err.Error(), "path traversal detected") {
+			t.Fatalf("expected path traversal error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "--kubeconfig flag") {
+			t.Fatalf("expected error to mention flag source, got %v", err)
+		}
+	}
+}
+
 func TestGetKubeconfigSymlinkResolution(t *testing.T) {
 	dir := t.TempDir()
 	targetDir := filepath.Join(dir, "target")
