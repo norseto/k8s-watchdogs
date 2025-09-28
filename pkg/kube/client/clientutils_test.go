@@ -64,6 +64,16 @@ func TestGetKubeconfig(t *testing.T) {
 			expectedSource: kubeconfigSourceDefault,
 		},
 		{
+			name: "HOME path without kubeconfig",
+			setup: func(t *testing.T) string {
+				homeDir := t.TempDir()
+				t.Setenv("HOME", homeDir)
+				t.Setenv("KUBECONFIG", "")
+				return ""
+			},
+			expectedSource: kubeconfigSourceNone,
+		},
+		{
 			name: "KUBECONFIG set",
 			setup: func(t *testing.T) string {
 				t.Setenv("HOME", "")
