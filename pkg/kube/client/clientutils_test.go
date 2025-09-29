@@ -38,10 +38,7 @@ import (
 
 func TestBindFlagsAndPFlags(t *testing.T) {
 	t.Run("FlagSet", func(t *testing.T) {
-		tmpFile := filepath.Join(t.TempDir(), "config")
-		if err := os.WriteFile(tmpFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
-			t.Fatalf("failed to write temp kubeconfig: %v", err)
-		}
+		tmpFile := createTempKubeconfig(t)
 
 		opts := &Options{}
 		fs := flag.NewFlagSet("test", flag.ContinueOnError)
@@ -57,10 +54,7 @@ func TestBindFlagsAndPFlags(t *testing.T) {
 	})
 
 	t.Run("PFlagSet", func(t *testing.T) {
-		tmpFile := filepath.Join(t.TempDir(), "config")
-		if err := os.WriteFile(tmpFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
-			t.Fatalf("failed to write temp kubeconfig: %v", err)
-		}
+		tmpFile := createTempKubeconfig(t)
 
 		opts := &Options{}
 		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
