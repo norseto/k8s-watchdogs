@@ -27,6 +27,7 @@ package client
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,16 +209,27 @@ func TestGetKubeconfigPathTraversal(t *testing.T) {
 		t.Fatalf("failed to create kubeconfig: %v", err)
 	}
 
-	opts := &Options{configFilePath: kubeconfigPath}
-	if _, _, err := opts.GetConfigFilePath(); err == nil {
+	opts := &Options{}
+	opts.configFilePath = kubeconfigPath
+
+	resolved, source, err := opts.GetConfigFilePath()
+	if err == nil {
 		t.Fatalf("expected path traversal validation error, got nil")
-	} else {
-		if !strings.Contains(err.Error(), "path traversal detected") {
-			t.Fatalf("expected path traversal error, got %v", err)
-		}
-		if !strings.Contains(err.Error(), "--kubeconfig flag") {
-			t.Fatalf("expected error to mention flag source, got %v", err)
-		}
+	}
+	if resolved != "" {
+		t.Fatalf("expected empty resolved path, got %v", resolved)
+	}
+	if source != kubeconfigSourceFlag {
+		t.Fatalf("expected source kubeconfigSourceFlag, got %v", source)
+	}
+
+	expectedError := fmt.Sprintf(
+		"kubeconfig path %q from %s failed validation: path traversal detected",
+		kubeconfigPath,
+		kubeconfigSourceFlag,
+	)
+	if err.Error() != expectedError {
+		t.Fatalf("expected error %q, got %v", expectedError, err)
 	}
 }
 
