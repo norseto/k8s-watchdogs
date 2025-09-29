@@ -325,6 +325,51 @@ func TestGetKubeconfigDeniedPrefixViaSymlink(t *testing.T) {
 	}
 }
 
+func TestHasPathPrefix(t *testing.T) {
+	tempDir := t.TempDir()
+	cases := []struct {
+		name     string
+		path     string
+		prefix   string
+		expected bool
+	}{
+		{
+			name:     "empty prefix returns false",
+			path:     filepath.Join(tempDir, "config"),
+			prefix:   "",
+			expected: false,
+		},
+		{
+			name:     "identical path returns true",
+			path:     filepath.Join(tempDir, "config"),
+			prefix:   filepath.Join(tempDir, "config"),
+			expected: true,
+		},
+		{
+			name:     "prefix without trailing slash matches",
+			path:     filepath.Join(tempDir, "allowed", "nested", "config"),
+			prefix:   filepath.Join(tempDir, "allowed", "nested"),
+			expected: true,
+		},
+		{
+			name:     "unrelated paths return false",
+			path:     filepath.Join(tempDir, "allowed", "config"),
+			prefix:   filepath.Join(tempDir, "denied"),
+			expected: false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			result := hasPathPrefix(tc.path, tc.prefix)
+			if result != tc.expected {
+				t.Fatalf("expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
 func TestGetKubeconfigAllowedPrefix(t *testing.T) {
 	dir := t.TempDir()
 	kubeconfigPath := filepath.Join(dir, "config")
