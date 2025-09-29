@@ -31,7 +31,57 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/pflag"
 )
+
+func TestBindFlagsAndPFlags(t *testing.T) {
+	t.Run("FlagSet", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "config")
+		if err := os.WriteFile(tmpFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
+			t.Fatalf("failed to write temp kubeconfig: %v", err)
+		}
+
+		opts := &Options{}
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		opts.BindFlags(fs)
+
+		if err := fs.Parse([]string{"--kubeconfig=" + tmpFile}); err != nil {
+			t.Fatalf("failed to parse flags: %v", err)
+		}
+
+		if opts.configFilePath != tmpFile {
+			t.Fatalf("expected configFilePath %q, got %q", tmpFile, opts.configFilePath)
+		}
+	})
+
+	t.Run("PFlagSet", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "config")
+		if err := os.WriteFile(tmpFile, []byte("apiVersion: v1\n"), 0o600); err != nil {
+			t.Fatalf("failed to write temp kubeconfig: %v", err)
+		}
+
+		opts := &Options{}
+		fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		opts.BindPFlags(fs)
+
+		if err := fs.Parse([]string{"--kubeconfig=" + tmpFile}); err != nil {
+			t.Fatalf("failed to parse flags: %v", err)
+		}
+
+		if opts.configFilePath != tmpFile {
+			t.Fatalf("expected configFilePath %q, got %q", tmpFile, opts.configFilePath)
+		}
+
+		flag := fs.Lookup("kubeconfig")
+		if flag == nil {
+			t.Fatalf("expected kubeconfig flag to be registered")
+		}
+		if !flag.Hidden {
+			t.Fatalf("expected kubeconfig flag to be hidden")
+		}
+	})
+}
 
 var backup *flag.FlagSet
 
