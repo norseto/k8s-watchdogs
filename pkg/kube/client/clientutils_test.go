@@ -171,6 +171,34 @@ func TestGetKubeconfig(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("NoDefaultKubeconfigWhenMissing", func(t *testing.T) {
+		homeDir := t.TempDir()
+		t.Setenv("HOME", homeDir)
+		t.Setenv("KUBECONFIG", "")
+
+		opts := &Options{}
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+		defer func() {
+			flag.CommandLine = backup
+		}()
+
+		opts.BindFlags(flag.CommandLine)
+		if err := flag.CommandLine.Parse([]string{}); err != nil {
+			t.Fatalf("failed to parse flags: %v", err)
+		}
+
+		path, source, err := opts.GetConfigFilePath()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if path != "" {
+			t.Fatalf("expected empty path, got %s", path)
+		}
+		if source != kubeconfigSourceNone {
+			t.Fatalf("expected source kubeconfigSourceNone, got %v", source)
+		}
+	})
 }
 
 func TestGetKubeconfigValidationError(t *testing.T) {
