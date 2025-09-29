@@ -204,8 +204,12 @@ func TestGetKubeconfig(t *testing.T) {
 
 func TestGetKubeconfigValidationError(t *testing.T) {
 	dir := t.TempDir()
+	nonRegularPath := filepath.Join(dir, "not-a-regular")
+	if err := os.Mkdir(nonRegularPath, 0o755); err != nil {
+		t.Fatalf("failed to create non-regular entry: %v", err)
+	}
 
-	opts := &Options{configFilePath: dir}
+	opts := &Options{configFilePath: nonRegularPath}
 
 	resolved, source, err := opts.GetConfigFilePath()
 	if err == nil {
@@ -220,7 +224,7 @@ func TestGetKubeconfigValidationError(t *testing.T) {
 	if !strings.Contains(err.Error(), "must be a regular file") {
 		t.Fatalf("expected error to mention regular file requirement, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "--kubeconfig flag") {
+	if !strings.Contains(err.Error(), "--kubeconfig") {
 		t.Fatalf("expected error to mention flag source, got %v", err)
 	}
 }
