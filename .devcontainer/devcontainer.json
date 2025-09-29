@@ -33,7 +33,9 @@
 
   "remoteUser": "vscode",
   "containerEnv": {
-    "GOCACHE": "/home/vscode/.gocache"
+    "GOCACHE": "/home/vscode/.gocache",
+    "GOPATH": "/go",
+    "GOROOT": "/usr/local/go"
   },
 
   "postCreateCommand": ". .devcontainer/post-create.sh",
@@ -49,7 +51,6 @@
   "mounts": [
     "type=volume,consistency=delegated,source=vscode-aws-cred,target=/home/vscode/.aws",
     "type=volume,consistency=delegated,source=vscode-oci-k8s-cred,target=/home/vscode/.kube",
-    "type=volume,consistency=delegated,source=vscode-go-path-bin-1-24,target=/go/bin",
     "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
     "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
     "type=volume,consistency=delegated,source=codex_volume,target=/home/vscode/.codex"
