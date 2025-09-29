@@ -317,6 +317,45 @@ func TestGetKubeconfigAllowedPrefix(t *testing.T) {
 	}
 }
 
+func TestSetPathPrefixAllowListEmptyEntryIgnored(t *testing.T) {
+	opts := &Options{}
+	prefixes := []string{""}
+
+	opts.SetPathPrefixAllowList(prefixes)
+
+	if len(opts.allowedPathPrefixes) != 1 {
+		t.Fatalf("expected exactly one allowed prefix, got %d", len(opts.allowedPathPrefixes))
+	}
+
+	prefixes[0] = "/mutated"
+
+	if opts.allowedPathPrefixes[0] != "" {
+		t.Fatalf("expected internal prefixes to remain unchanged, got %q", opts.allowedPathPrefixes[0])
+	}
+
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "config")
+	if err := os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	opts.configFilePath = kubeconfigPath
+
+	resolved, source, err := opts.GetConfigFilePath()
+	if err == nil {
+		t.Fatalf("expected error because empty prefixes are ignored")
+	}
+	if resolved != "" {
+		t.Fatalf("expected empty resolved path, got %s", resolved)
+	}
+	if source != kubeconfigSourceFlag {
+		t.Fatalf("expected kubeconfigSourceFlag, got %v", source)
+	}
+	if !strings.Contains(err.Error(), "not under an allowed prefix") {
+		t.Fatalf("expected error to mention allowed prefix validation, got %v", err)
+	}
+}
+
 func TestFromContext(t *testing.T) {
 	// Test when context contains Options value
 	expectedOptions := &Options{} // Replace with the actual initialization of Options struct
