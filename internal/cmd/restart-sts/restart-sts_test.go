@@ -26,6 +26,7 @@ package restartsts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -240,6 +241,24 @@ func TestNewCommand(t *testing.T) {
 
 func TestNewCommandRunE(t *testing.T) {
 	ctx := logger.WithContext(context.Background(), zap.New())
+
+	t.Run("client creation failure surfaces error", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		cmd.SetArgs([]string{"statefulset-a"})
+
+		restore := swapNewClientset(t, func(*client.Options) (kubernetes.Interface, error) {
+			return nil, errors.New("boom")
+		})
+		defer restore()
+
+		runErr := cmd.RunE(cmd, []string{"statefulset-a"})
+		assert.EqualError(t, runErr, "failed to create client: boom")
+	})
 
 	t.Run("restart all patches every statefulset", func(t *testing.T) {
 		cmd := NewCommand()
