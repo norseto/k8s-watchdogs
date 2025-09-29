@@ -316,6 +316,33 @@ func TestGetKubeconfigAllowedPrefix(t *testing.T) {
 	}
 }
 
+func TestGetKubeconfigAllowedPrefixMismatch(t *testing.T) {
+	configDir := t.TempDir()
+	kubeconfigPath := filepath.Join(configDir, "config")
+	if err := os.WriteFile(kubeconfigPath, []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("failed to create kubeconfig: %v", err)
+	}
+
+	allowedDir := t.TempDir()
+
+	opts := &Options{configFilePath: kubeconfigPath}
+	opts.SetPathPrefixAllowList([]string{allowedDir})
+
+	resolved, source, err := opts.GetConfigFilePath()
+	if err == nil {
+		t.Fatalf("expected error for disallowed prefix, got nil")
+	}
+	if resolved != "" {
+		t.Fatalf("expected empty resolved path, got %s", resolved)
+	}
+	if source != kubeconfigSourceFlag {
+		t.Fatalf("expected kubeconfigSourceFlag, got %v", source)
+	}
+	if !strings.Contains(err.Error(), "not under an allowed prefix") {
+		t.Fatalf("expected error to mention allowed prefix validation, got %v", err)
+	}
+}
+
 func TestSetPathPrefixAllowListEmptyEntryIgnored(t *testing.T) {
 	opts := &Options{}
 	prefixes := []string{""}
