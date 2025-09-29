@@ -156,13 +156,36 @@ func TestRestartStatefulSet(t *testing.T) {
 }
 
 func TestNewCommand(t *testing.T) {
-	cmd := NewCommand()
-	assert.Equal(t, "restart-sts [statefulset-name|--all]", cmd.Use)
+	t.Run("test new command", func(t *testing.T) {
+		cmd := NewCommand()
 
-	// Verify --all flag exists
-	allFlag := cmd.Flag("all")
-	assert.NotNil(t, allFlag, "Expected --all flag to exist")
-	assert.Equal(t, "a", allFlag.Shorthand, "Expected shorthand for --all to be -a")
+		assert.Equal(t, "restart-sts [statefulset-name|--all]", cmd.Use)
+		assert.Equal(t, "Restart statefulsets by name or all with --all", cmd.Short)
+
+		allFlag := cmd.Flag("all")
+		assert.NotNil(t, allFlag, "Expected --all flag to exist")
+		assert.Equal(t, "a", allFlag.Shorthand, "Expected shorthand for --all to be -a")
+	})
+
+	t.Run("args validation requires names without all flag", func(t *testing.T) {
+		cmd := NewCommand()
+
+		err := cmd.Args(cmd, []string{})
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "requires at least one statefulset name")
+	})
+
+	t.Run("args validation allows empty when all flag set", func(t *testing.T) {
+		cmd := NewCommand()
+
+		err := cmd.Flags().Set("all", "true")
+		assert.NoError(t, err)
+
+		argErr := cmd.Args(cmd, []string{})
+
+		assert.NoError(t, argErr)
+	})
 
 	t.Run("invalid namespace", func(t *testing.T) {
 		cmd := NewCommand()
