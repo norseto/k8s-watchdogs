@@ -149,6 +149,23 @@ func TestRestartStatefulSet(t *testing.T) {
 		assert.True(t, patchCalled, "Expected patch to be called")
 	})
 
+	t.Run("get returns nil object", func(t *testing.T) {
+		sts := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-sts",
+				Namespace: "default",
+			},
+		}
+		client := fake.NewSimpleClientset(sts)
+		client.PrependReactor("get", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+			var nilStatefulSet *appsv1.StatefulSet
+			return true, nilStatefulSet, nil
+		})
+
+		err := restartStatefulSet(testCtx, client, "default", []string{"test-sts"})
+		assert.EqualError(t, err, "statefulset default/test-sts not found")
+	})
+
 	t.Run("too many targets", func(t *testing.T) {
 		var names []string
 		for i := 0; i < 51; i++ {
