@@ -471,6 +471,35 @@ func TestSetPathPrefixAllowListEmptyEntryIgnored(t *testing.T) {
 	}
 }
 
+func TestSetPathPrefixAllowListCopiesInput(t *testing.T) {
+	opts := &Options{}
+	dir := t.TempDir()
+	prefixes := []string{dir}
+
+	opts.SetPathPrefixAllowList(prefixes)
+
+	mutatedValue := filepath.Join(dir, "mutated")
+	prefixes[0] = mutatedValue
+
+	if len(opts.allowedPathPrefixes) != len(prefixes) {
+		t.Fatalf("expected allowed prefixes length %d, got %d", len(prefixes), len(opts.allowedPathPrefixes))
+	}
+
+	if opts.allowedPathPrefixes[0] != dir {
+		t.Fatalf("expected stored prefix %q to remain unchanged, got %q", dir, opts.allowedPathPrefixes[0])
+	}
+}
+
+func TestSetPathPrefixAllowListNilInput(t *testing.T) {
+	opts := &Options{}
+
+	opts.SetPathPrefixAllowList(nil)
+
+	if opts.allowedPathPrefixes != nil {
+		t.Fatalf("expected nil allowedPathPrefixes when input is nil")
+	}
+}
+
 func TestFromContext(t *testing.T) {
 	// Test when context contains Options value
 	expectedOptions := &Options{} // Replace with the actual initialization of Options struct
