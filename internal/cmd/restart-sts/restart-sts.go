@@ -38,6 +38,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var newClientset = func(opts *client.Options) (kubernetes.Interface, error) {
+	return client.NewClientset(opts)
+}
+
 // NewCommand returns a new Cobra command for restarting statefulsets.
 func NewCommand() *cobra.Command {
 	opts := &options.Options{}
@@ -48,7 +52,7 @@ func NewCommand() *cobra.Command {
 		Short: "Restart statefulsets by name or all with --all",
 		Long:  "Restart one or more statefulsets by specifying statefulset-name(s), or use --all to restart all in the namespace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
+			ctx := logger.WithContext(cmd.Context(), logger.FromContext(cmd.Context()))
 
 			// Security: Validate namespace parameter
 			if err := validation.ValidateNamespace(opts.Namespace()); err != nil {
@@ -66,7 +70,7 @@ func NewCommand() *cobra.Command {
 
 			cmd.SilenceUsage = true
 
-			clnt, err := client.NewClientset(client.FromContext(ctx))
+			clnt, err := newClientset(client.FromContext(ctx))
 			if err != nil {
 				logger.FromContext(ctx).Error(err, "failed to create client")
 				return fmt.Errorf("failed to create client: %w", err)

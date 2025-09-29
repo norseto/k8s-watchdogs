@@ -31,16 +31,50 @@ import (
 	"testing"
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // Common context used in tests
 var testCtx = context.TODO()
+
+func swapNewClientset(t *testing.T, factory func(*client.Options) (kubernetes.Interface, error)) func() {
+	t.Helper()
+
+	original := newClientset
+	newClientset = factory
+
+	return func() {
+		newClientset = original
+	}
+}
+
+func useFakeClientset(t *testing.T, objects ...runtime.Object) (*fake.Clientset, func()) {
+	t.Helper()
+
+	fakeClient := fake.NewSimpleClientset(objects...)
+	restore := swapNewClientset(t, func(*client.Options) (kubernetes.Interface, error) {
+		return fakeClient, nil
+	})
+
+	return fakeClient, restore
+}
+
+func convertToRuntimeObjects(statefulsets []*appsv1.StatefulSet) []runtime.Object {
+	objects := make([]runtime.Object, len(statefulsets))
+	for i, sts := range statefulsets {
+		objects[i] = sts.DeepCopy()
+	}
+	return objects
+}
 
 func TestValidateResourceName(t *testing.T) {
 	cases := []struct {
@@ -201,6 +235,101 @@ func TestNewCommand(t *testing.T) {
 		cmd.SetArgs([]string{"Invalid*"})
 		err := cmd.Execute()
 		assert.Error(t, err)
+	})
+}
+
+func TestNewCommandRunE(t *testing.T) {
+	ctx := logger.WithContext(context.Background(), zap.New())
+
+	t.Run("restart all patches every statefulset", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		err = cmd.Flags().Set("all", "true")
+		assert.NoError(t, err)
+
+		statefulsets := []*appsv1.StatefulSet{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "statefulset-a",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "statefulset-b",
+					Namespace: "default",
+				},
+			},
+		}
+
+		fakeClient, restore := useFakeClientset(t, convertToRuntimeObjects(statefulsets)...)
+		defer restore()
+
+		patched := make(map[string]int)
+		fakeClient.PrependReactor("patch", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patched[name]++
+			return true, &appsv1.StatefulSet{}, nil
+		})
+
+		runErr := cmd.RunE(cmd, nil)
+		assert.NoError(t, runErr)
+
+		for _, sts := range statefulsets {
+			assert.Equal(t, 1, patched[sts.Name])
+		}
+	})
+
+	t.Run("only targeted statefulsets are patched", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		statefulsets := []*appsv1.StatefulSet{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "statefulset-a",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "statefulset-b",
+					Namespace: "default",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "statefulset-c",
+					Namespace: "default",
+				},
+			},
+		}
+
+		fakeClient, restore := useFakeClientset(t, convertToRuntimeObjects(statefulsets)...)
+		defer restore()
+
+		patched := make(map[string]int)
+		fakeClient.PrependReactor("patch", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+			patchAction := action.(ktesting.PatchAction)
+			name := patchAction.GetName()
+			patched[name]++
+			return true, &appsv1.StatefulSet{}, nil
+		})
+
+		runErr := cmd.RunE(cmd, []string{"statefulset-a", "statefulset-c"})
+		assert.NoError(t, runErr)
+
+		assert.Equal(t, 1, patched["statefulset-a"])
+		assert.Equal(t, 1, patched["statefulset-c"])
+		assert.Zero(t, patched["statefulset-b"])
 	})
 }
 
