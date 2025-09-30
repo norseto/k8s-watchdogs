@@ -34,10 +34,13 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
+	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestCleanEvictedPods(t *testing.T) {
@@ -156,6 +159,22 @@ func TestCleanEvictedPodsAggregatesDeleteErrors(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, deleteActions)
+}
+
+func TestNewCommandReturnsClientCreationError(t *testing.T) {
+	t.Setenv("KUBECONFIG", "/nonexistent/path")
+
+	ctx := logger.WithContext(context.Background(), zap.New())
+	ctx = client.WithContext(ctx, &client.Options{})
+
+	cmd := NewCommand()
+	cmd.SetContext(ctx)
+
+	err := cmd.RunE(cmd, nil)
+
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "KUBECONFIG environment variable")
+	}
 }
 
 func TestCleanEvictedPodsSkipsPodsWithoutName(t *testing.T) {
