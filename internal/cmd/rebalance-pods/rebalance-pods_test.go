@@ -430,6 +430,95 @@ func TestRebalancePods_ErrorCases(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRebalancePods_DeleteErrorContinues(t *testing.T) {
+	ctx := context.Background()
+	replicas := int32(2)
+
+	node1 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}}
+	node2 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node2"}}
+
+	rs1 := &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs-one",
+			Namespace: "default",
+			UID:       types.UID("rs-one"),
+		},
+		Spec:   appsv1.ReplicaSetSpec{Replicas: &replicas},
+		Status: appsv1.ReplicaSetStatus{Replicas: 2},
+	}
+	rs2 := &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs-two",
+			Namespace: "default",
+			UID:       types.UID("rs-two"),
+		},
+		Spec:   appsv1.ReplicaSetSpec{Replicas: &replicas},
+		Status: appsv1.ReplicaSetStatus{Replicas: 2},
+	}
+
+	pod1a := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1-a",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{{
+				Kind: "ReplicaSet",
+				Name: rs1.Name,
+				UID:  rs1.UID,
+			}},
+		},
+		Spec: corev1.PodSpec{NodeName: node1.Name},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+	pod1b := pod1a.DeepCopy()
+	pod1b.Name = "pod1-b"
+
+	pod2a := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2-a",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{{
+				Kind: "ReplicaSet",
+				Name: rs2.Name,
+				UID:  rs2.UID,
+			}},
+		},
+		Spec: corev1.PodSpec{NodeName: node1.Name},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{
+				Type:   corev1.PodReady,
+				Status: corev1.ConditionTrue,
+			}},
+		},
+	}
+	pod2b := pod2a.DeepCopy()
+	pod2b.Name = "pod2-b"
+
+	client := fake.NewSimpleClientset(node1, node2, rs1, rs2, pod1a, pod1b, pod2a, pod2b)
+
+	var deleteCalls int
+	var successfulDeletes int
+	client.PrependReactor("delete", "pods", func(action ktesting.Action) (bool, runtime.Object, error) {
+		deleteCalls++
+		if deleteCalls == 1 {
+			return true, nil, assert.AnError
+		}
+		successfulDeletes++
+		return true, nil, nil
+	})
+
+	err := rebalancePods(ctx, client, "default", .5)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, deleteCalls)
+	assert.Equal(t, 1, successfulDeletes)
+}
+
 func TestRebalancePods_LimitReplicaSets(t *testing.T) {
 	ctx := context.Background()
 	nodes := []*corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "n1"}}, {ObjectMeta: metav1.ObjectMeta{Name: "n2"}}}
