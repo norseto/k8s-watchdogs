@@ -231,6 +231,18 @@ func TestNewCommand(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestNewCommand_ClientsetError(t *testing.T) {
+	t.Setenv("KUBECONFIG", "/non-existent/path")
+
+	cmd := NewCommand()
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "failed to create client")
+	}
+}
+
 func TestValidateNamespace(t *testing.T) {
 	assert.Error(t, validation.ValidateNamespace(""))
 	assert.Error(t, validation.ValidateNamespace("Invalid*"))
