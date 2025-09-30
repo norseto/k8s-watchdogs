@@ -200,6 +200,85 @@ func TestRebalancePods_PodNotOwnedByReplicaSet(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRebalancePods_NoNeedToRebalance(t *testing.T) {
+	ctx := context.Background()
+
+	node1 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}}
+	node2 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node2"}}
+
+	replicas := int32(2)
+	rs := &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rs",
+			Namespace: "default",
+			UID:       "rs-uid",
+		},
+		Spec: appsv1.ReplicaSetSpec{
+			Replicas: &replicas,
+		},
+		Status: appsv1.ReplicaSetStatus{
+			Replicas: 2,
+		},
+	}
+
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "ReplicaSet",
+					Name: rs.Name,
+					UID:  rs.UID,
+				},
+			},
+		},
+		Spec: corev1.PodSpec{NodeName: node1.Name},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind: "ReplicaSet",
+					Name: rs.Name,
+					UID:  rs.UID,
+				},
+			},
+		},
+		Spec: corev1.PodSpec{NodeName: node2.Name},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+
+	client := fake.NewSimpleClientset(node1, node2, rs, pod1, pod2)
+	client.PrependReactor("delete", "pods", func(action ktesting.Action) (bool, runtime.Object, error) {
+		t.Fatalf("unexpected delete action: %#v", action)
+		return true, nil, nil
+	})
+
+	err := rebalancePods(ctx, client, "default", .25)
+	assert.NoError(t, err)
+}
+
 // TestNewCommand verifies default flags and validations
 func TestNewCommand(t *testing.T) {
 	cmd := NewCommand()
