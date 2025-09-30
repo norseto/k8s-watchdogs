@@ -27,6 +27,7 @@ package rebalancepods
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
@@ -311,7 +312,8 @@ func TestNewCommand(t *testing.T) {
 }
 
 func TestNewCommand_ClientsetError(t *testing.T) {
-	t.Setenv("KUBECONFIG", "/non-existent/path")
+	missingKubeconfig := filepath.Join(t.TempDir(), "non-existent", "config")
+	t.Setenv("KUBECONFIG", missingKubeconfig)
 
 	cmd := NewCommand()
 	cmd.SetArgs([]string{})
