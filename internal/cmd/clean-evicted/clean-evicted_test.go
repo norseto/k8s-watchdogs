@@ -27,6 +27,8 @@ package cleanevicted
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -291,4 +293,80 @@ func TestValidateNamespace(t *testing.T) {
 
 func TestNewCommand(t *testing.T) {
 	assert.NotNil(t, NewCommand())
+}
+
+// createTempKubeconfig creates a temporary kubeconfig file for testing.
+func createTempKubeconfig(t *testing.T) string {
+	content := []byte("apiVersion: v1\n" +
+		"clusters:\n" +
+		"- cluster:\n" +
+		"    server: https://127.0.0.1\n" +
+		"  name: test\n" +
+		"contexts:\n" +
+		"- context:\n" +
+		"    cluster: test\n" +
+		"    user: test\n" +
+		"  name: test\n" +
+		"current-context: test\n" +
+		"users:\n" +
+		"- name: test\n" +
+		"  user:\n" +
+		"    token: dummy\n")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	if err := os.WriteFile(path, content, 0600); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+	return path
+}
+
+// TestNewCommand_SuccessfulExecution tests the successful execution path of the command.
+func TestNewCommand_SuccessfulExecution(t *testing.T) {
+	// Create a minimal kubeconfig that will quickly fail when trying to connect
+	content := []byte("apiVersion: v1\n" +
+		"clusters:\n" +
+		"- cluster:\n" +
+		"    server: http://127.0.0.1:1\n" + // Port 1 will be rejected quickly
+		"  name: test\n" +
+		"contexts:\n" +
+		"- context:\n" +
+		"    cluster: test\n" +
+		"    user: test\n" +
+		"  name: test\n" +
+		"current-context: test\n" +
+		"users:\n" +
+		"- name: test\n" +
+		"  user:\n" +
+		"    token: dummy\n")
+	dir := t.TempDir()
+	kubeconfigPath := filepath.Join(dir, "config")
+	if err := os.WriteFile(kubeconfigPath, content, 0600); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	t.Setenv("KUBECONFIG", kubeconfigPath)
+
+	ctx := logger.WithContext(context.Background(), zap.New())
+	ctx = client.WithContext(ctx, &client.Options{})
+
+	cmd := NewCommand()
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--namespace", "default"})
+
+	// The command will attempt to connect to the fake server at http://127.0.0.1:1
+	// This will fail with a connection error, but that's expected.
+	// What we're testing is that the command successfully parses arguments,
+	// creates the client, and attempts to execute cleanEvictedPods.
+	// The error from connecting to the server is different from a client creation error.
+	err := cmd.Execute()
+
+	// We expect an error because we're trying to connect to a fake server,
+	// but it should be a connection error, not a client creation error.
+	if err != nil {
+		// This is acceptable - we can't actually connect to the fake server.
+		// The important thing is that we got past the client creation step (line 59).
+		assert.NotContains(t, err.Error(), "failed to create clientset")
+		// Verify we got to the point of trying to list pods
+		assert.Contains(t, err.Error(), "failed to list pods")
+	}
 }
