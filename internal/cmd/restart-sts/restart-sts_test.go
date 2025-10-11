@@ -321,6 +321,20 @@ func TestNewCommandRunE(t *testing.T) {
 		}
 	})
 
+	t.Run("no args triggers usage", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		_, restore := useFakeClientset(t)
+		defer restore()
+
+		runErr := cmd.RunE(cmd, []string{})
+		assert.NoError(t, runErr)
+	})
+
 	t.Run("only targeted statefulsets are patched", func(t *testing.T) {
 		cmd := NewCommand()
 		cmd.SetContext(ctx)

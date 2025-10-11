@@ -32,6 +32,20 @@ func TestInitLogger(t *testing.T) {
 	assert.NotNil(t, logger)
 }
 
+func TestInitLoggerWithParsedFlags(t *testing.T) {
+	originalCommandLine := flag.CommandLine
+	defer func() { flag.CommandLine = originalCommandLine }()
+
+	fs := flag.NewFlagSet(t.Name(), flag.ContinueOnError)
+	if err := fs.Parse([]string{}); err != nil {
+		t.Fatalf("failed to parse flagset: %v", err)
+	}
+	flag.CommandLine = fs
+
+	logger := InitLogger()
+	assert.NotNil(t, logger)
+}
+
 func TestFromContext(t *testing.T) {
 	ctx := context.Background()
 	logger := zap.New()

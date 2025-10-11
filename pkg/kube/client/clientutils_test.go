@@ -26,6 +26,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -34,6 +35,8 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func TestBindFlagsAndPFlags(t *testing.T) {
@@ -194,6 +197,41 @@ func TestGetKubeconfig(t *testing.T) {
 			t.Fatalf("expected source kubeconfigSourceNone, got %v", source)
 		}
 	})
+}
+
+func TestGetKubeconfigDefaultPathMissing(t *testing.T) {
+	opts := &Options{}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KUBECONFIG", "")
+
+	path, source, err := opts.GetConfigFilePath()
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if path != "" {
+		t.Fatalf("expected empty path, got %q", path)
+	}
+	if source != kubeconfigSourceNone {
+		t.Fatalf("expected kubeconfigSourceNone, got %v", source)
+	}
+}
+
+func TestGetKubeconfigNoEnvVariables(t *testing.T) {
+	opts := &Options{}
+	t.Setenv("KUBECONFIG", "")
+	t.Setenv("HOME", "")
+
+	path, source, err := opts.GetConfigFilePath()
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if path != "" {
+		t.Fatalf("expected empty path, got %q", path)
+	}
+	if source != kubeconfigSourceNone {
+		t.Fatalf("expected kubeconfigSourceNone, got %v", source)
+	}
 }
 
 func TestGetKubeconfigValidationError(t *testing.T) {
@@ -597,6 +635,64 @@ func TestNewRESTConfig(t *testing.T) {
 	})
 }
 
+func TestNewRESTConfigInClusterWithoutConfig(t *testing.T) {
+	originalBuild := buildConfigFromFlags
+	originalInCluster := inClusterConfig
+	t.Cleanup(func() {
+		buildConfigFromFlags = originalBuild
+		inClusterConfig = originalInCluster
+	})
+
+	buildConfigFromFlags = func(_, _ string) (*rest.Config, error) {
+		t.Fatalf("buildConfigFromFlags should not be called when no kubeconfig path is found")
+		return nil, nil
+	}
+	inClusterConfig = func() (*rest.Config, error) {
+		return &rest.Config{Host: "https://in-cluster"}, nil
+	}
+
+	t.Setenv("HOME", "")
+	t.Setenv("KUBECONFIG", "")
+
+	opts := &Options{}
+	cfg, err := NewRESTConfig(opts)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cfg.Host != "https://in-cluster" {
+		t.Fatalf("expected in-cluster host, got %s", cfg.Host)
+	}
+}
+
+func TestNewRESTConfigDefaultLocation(t *testing.T) {
+	tmp := t.TempDir()
+	kubeDir := filepath.Join(tmp, ".kube")
+	if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+		t.Fatalf("failed to create kube dir: %v", err)
+	}
+	configPath := filepath.Join(kubeDir, "config")
+	sourceCfg := createTempKubeconfig(t)
+	data, err := os.ReadFile(sourceCfg)
+	if err != nil {
+		t.Fatalf("failed to read kubeconfig: %v", err)
+	}
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	t.Setenv("HOME", tmp)
+	t.Setenv("KUBECONFIG", "")
+
+	opts := &Options{}
+	cfg, err := NewRESTConfig(opts)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if cfg == nil || cfg.Host == "" {
+		t.Fatalf("expected valid config, got %#v", cfg)
+	}
+}
+
 func TestNewClientset(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		opts := &Options{configFilePath: createTempKubeconfig(t)}
@@ -643,4 +739,145 @@ func TestNewClientsetWithRestConfig(t *testing.T) {
 			t.Errorf("expected nil client and config, got %v %v", client, cfg)
 		}
 	})
+}
+
+func TestKubeconfigSourceStringCoverage(t *testing.T) {
+	expectations := map[kubeconfigSource]string{
+		kubeconfigSourceFlag:    "--kubeconfig flag",
+		kubeconfigSourceEnv:     "KUBECONFIG environment variable",
+		kubeconfigSourceDefault: "default kubeconfig location",
+		kubeconfigSourceNone:    "",
+	}
+
+	for src, want := range expectations {
+		if got := src.String(); got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	}
+}
+
+func TestHandleImplicitPathErrorExplicit(t *testing.T) {
+	_, returnedSource, err := handleImplicitPathError("/conf", kubeconfigSourceFlag, errors.New("boom"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if returnedSource != kubeconfigSourceFlag {
+		t.Fatalf("expected kubeconfigSourceFlag, got %v", returnedSource)
+	}
+	if !strings.Contains(err.Error(), "--kubeconfig flag") {
+		t.Fatalf("expected error message to mention flag source, got %v", err)
+	}
+}
+
+func TestHandleImplicitPathErrorImplicit(t *testing.T) {
+	path, returnedSource, err := handleImplicitPathError("/conf", kubeconfigSourceDefault, errors.New("boom"))
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if path != "" {
+		t.Fatalf("expected empty path, got %q", path)
+	}
+	if returnedSource != kubeconfigSourceNone {
+		t.Fatalf("expected kubeconfigSourceNone, got %v", returnedSource)
+	}
+}
+
+func TestNewRESTConfigFallsBackToInCluster(t *testing.T) {
+	tmp := t.TempDir()
+	kubeDir := filepath.Join(tmp, ".kube")
+	if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+		t.Fatalf("failed to create kube dir: %v", err)
+	}
+	configPath := filepath.Join(kubeDir, "config")
+	if err := os.WriteFile(configPath, []byte("clusters: []"), 0o644); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	t.Setenv("HOME", tmp)
+
+	originalBuild := buildConfigFromFlags
+	originalInCluster := inClusterConfig
+	buildConfigFromFlags = func(_, _ string) (*rest.Config, error) {
+		return nil, errors.New("failed to parse kubeconfig")
+	}
+	inClusterConfig = func() (*rest.Config, error) {
+		return &rest.Config{Host: "https://in-cluster"}, nil
+	}
+	defer func() {
+		buildConfigFromFlags = originalBuild
+		inClusterConfig = originalInCluster
+	}()
+
+	opts := &Options{}
+	opts.SetPathPrefixAllowList([]string{tmp})
+
+	cfg, err := NewRESTConfig(opts)
+	if err != nil {
+		t.Fatalf("expected fallback config, got error %v", err)
+	}
+	if cfg.Host != "https://in-cluster" {
+		t.Fatalf("expected in-cluster host, got %s", cfg.Host)
+	}
+}
+
+func TestNewRESTConfigFallbackError(t *testing.T) {
+	tmp := t.TempDir()
+	kubeDir := filepath.Join(tmp, ".kube")
+	if err := os.MkdirAll(kubeDir, 0o755); err != nil {
+		t.Fatalf("failed to create kube dir: %v", err)
+	}
+	configPath := filepath.Join(kubeDir, "config")
+	if err := os.WriteFile(configPath, []byte("clusters: []"), 0o644); err != nil {
+		t.Fatalf("failed to write kubeconfig: %v", err)
+	}
+
+	t.Setenv("HOME", tmp)
+
+	originalBuild := buildConfigFromFlags
+	originalInCluster := inClusterConfig
+	buildConfigFromFlags = func(_, _ string) (*rest.Config, error) {
+		return nil, errors.New("failed to parse kubeconfig")
+	}
+	inClusterConfig = func() (*rest.Config, error) {
+		return nil, errors.New("no in-cluster config")
+	}
+	defer func() {
+		buildConfigFromFlags = originalBuild
+		inClusterConfig = originalInCluster
+	}()
+
+	opts := &Options{}
+	opts.SetPathPrefixAllowList([]string{tmp})
+
+	cfg, err := NewRESTConfig(opts)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if cfg != nil {
+		t.Fatalf("expected nil config on error")
+	}
+}
+
+func TestNewClientsetWithRestConfigFailure(t *testing.T) {
+	opts := &Options{configFilePath: createTempKubeconfig(t)}
+	originalBuild := buildConfigFromFlags
+	originalNew := newClientsetForConfig
+	buildConfigFromFlags = func(_, _ string) (*rest.Config, error) {
+		return &rest.Config{Host: "https://127.0.0.1"}, nil
+	}
+	newClientsetForConfig = func(*rest.Config) (*kubernetes.Clientset, error) {
+		return nil, errors.New("boom")
+	}
+	defer func() {
+		buildConfigFromFlags = originalBuild
+		newClientsetForConfig = originalNew
+	}()
+
+	client, cfg, err := NewClientsetWithRestConfig(opts)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if client != nil || cfg != nil {
+		t.Fatalf("expected nil client and config")
+	}
 }

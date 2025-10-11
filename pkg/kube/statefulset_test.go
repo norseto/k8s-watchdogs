@@ -26,6 +26,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/norseto/k8s-watchdogs/pkg/logger"
@@ -35,10 +36,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestRestartStatefulSet(t *testing.T) {
-	ctx := logger.WithContext(context.Background(), logger.InitLogger())
+	ctx := logger.WithContext(context.Background(), zap.New())
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-sts",
@@ -60,4 +62,18 @@ func TestRestartStatefulSet(t *testing.T) {
 	err := RestartStatefulSet(ctx, client, sts)
 	assert.NoError(t, err)
 	assert.True(t, patchCalled, "Expected patch to be called")
+}
+
+func TestRestartStatefulSetPatchError(t *testing.T) {
+	ctx := logger.WithContext(context.Background(), zap.New())
+	sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "fail", Namespace: "default"}}
+	client := fake.NewSimpleClientset(sts)
+
+	client.PrependReactor("patch", "statefulsets", func(action ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("patch failed")
+	})
+
+	if err := RestartStatefulSet(ctx, client, sts); err == nil {
+		t.Fatalf("expected error when patch fails")
+	}
 }

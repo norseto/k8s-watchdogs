@@ -47,6 +47,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type rebalancerRunner interface {
+	Rebalance(context.Context, kubernetes.Interface) (bool, error)
+}
+
+var (
+	maxRebalancePerRun = 100
+	newRebalancerFunc  = func(ctx context.Context, current *rebalancer.ReplicaState, rate float32) rebalancerRunner {
+		return rebalancer.NewRebalancer(ctx, current, rate)
+	}
+	getCandidatePodsFunc = getCandidatePods
+)
+
 // NewCommand returns a new Cobra command for re-balancing pods.
 func NewCommand() *cobra.Command {
 	opts := &options.Options{}
@@ -103,7 +115,7 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 		return fmt.Errorf("failed to get replicasets: %w", err)
 	}
 
-	rs, err := getCandidatePods(ctx, client, namespace, nodes, replicas)
+	rs, err := getCandidatePodsFunc(ctx, client, namespace, nodes, replicas)
 	if err != nil {
 		log.Error(err, "failed to list pods", "namespace", namespace)
 		return fmt.Errorf("failed to list pods: %w", err)
@@ -115,7 +127,6 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 	}
 
 	// Security: Limit the number of replicasets that can be rebalanced in one operation
-	const maxRebalancePerRun = 100
 	if len(rs) > maxRebalancePerRun {
 		log.Info("limiting replicasets for safety", "found", len(rs), "limit", maxRebalancePerRun)
 		rs = rs[:maxRebalancePerRun]
@@ -136,7 +147,7 @@ func rebalancePods(ctx context.Context, client kubernetes.Interface, namespace s
 			continue
 		}
 
-		result, err := rebalancer.NewRebalancer(ctx, r, rate).Rebalance(ctx, client)
+		result, err := newRebalancerFunc(ctx, r, rate).Rebalance(ctx, client)
 		if err != nil {
 			log.Error(err, "failed to rebalance", "rs", name)
 			// Continue with other replicasets instead of failing completely

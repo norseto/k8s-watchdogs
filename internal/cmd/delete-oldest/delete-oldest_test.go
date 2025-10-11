@@ -33,11 +33,13 @@ import (
 
 	"github.com/norseto/k8s-watchdogs/internal/pkg/validation"
 	"github.com/norseto/k8s-watchdogs/pkg/kube/client"
+	"github.com/norseto/k8s-watchdogs/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestDeleteOldestPods(t *testing.T) {
@@ -73,6 +75,52 @@ func TestDeleteOldestPods(t *testing.T) {
 	err = deleteOldestPods(ctx, client, "test-ns", "test-pod", 1)
 	if err != nil {
 		t.Errorf("Expected nil, but got %v", err)
+	}
+}
+
+func TestNewCommandUsageWhenMissingFlags(t *testing.T) {
+	cmd := NewCommand()
+	buf := &bytes.Buffer{}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if buf.Len() == 0 {
+		t.Fatalf("expected usage output when required flags missing")
+	}
+}
+
+func TestNewCommandInvalidPrefix(t *testing.T) {
+	cmd := NewCommand()
+	ctx := logger.WithContext(context.Background(), zap.New())
+	ctx = client.WithContext(ctx, &client.Options{})
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--prefix", "INVALID", "--minPods", "1"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "invalid prefix") {
+		t.Fatalf("expected invalid prefix error, got %v", err)
+	}
+}
+
+func TestNewCommandClientError(t *testing.T) {
+	cmd := NewCommand()
+	ctx := logger.WithContext(context.Background(), zap.New())
+	ctx = client.WithContext(ctx, &client.Options{})
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--prefix", "ok", "--minPods", "1"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected client creation error")
+	}
+	if !strings.Contains(err.Error(), "failed to create client") {
+		t.Fatalf("expected client failure message, got %v", err)
 	}
 }
 

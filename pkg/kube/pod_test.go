@@ -26,13 +26,17 @@ package kube
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	testclient "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestIsPodReadyRunning(t *testing.T) {
@@ -102,6 +106,24 @@ func TestDeletePod(t *testing.T) {
 	pods, err := client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(pods.Items))
+}
+
+func TestDeletePodError(t *testing.T) {
+	ctx := context.Background()
+	client := testclient.NewSimpleClientset()
+	deleteErr := fmt.Errorf("delete failed")
+	client.PrependReactor("delete", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, deleteErr
+	})
+
+	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "fail"}}
+	err := DeletePod(ctx, client, pod)
+	if err == nil {
+		t.Fatalf("expected error when delete fails")
+	}
+	if !strings.Contains(err.Error(), "failed to delete Pod") {
+		t.Fatalf("expected wrapped delete error, got %v", err)
+	}
 }
 
 func TestToleratesTaint(t *testing.T) {
@@ -216,6 +238,17 @@ func TestGetPodRequestResources(t *testing.T) {
 
 	if result.Memory().Cmp(*expected.Memory()) != 0 {
 		t.Errorf("Memory resource mismatch, expected: %v, got: %v", expected.Memory(), result.Memory())
+	}
+}
+
+func TestGetPodRequestResourcesDefaults(t *testing.T) {
+	pod := corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{}}}}
+	res := GetPodRequestResources(pod.Spec)
+	if res.Cpu().Cmp(*resource.NewQuantity(0, resource.DecimalSI)) != 0 {
+		t.Fatalf("expected zero cpu request, got %s", res.Cpu().String())
+	}
+	if res.Memory().Cmp(*resource.NewQuantity(0, resource.BinarySI)) != 0 {
+		t.Fatalf("expected zero memory request, got %s", res.Memory().String())
 	}
 }
 func TestCanBeRebalanced(t *testing.T) {

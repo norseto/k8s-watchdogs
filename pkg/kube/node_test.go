@@ -28,13 +28,16 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestGetAllNodes(t *testing.T) {
@@ -58,6 +61,22 @@ func TestGetAllNodes(t *testing.T) {
 	})
 }
 
+func TestGetAllNodesError(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	failErr := fmt.Errorf("list failed")
+	client.PrependReactor("list", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, failErr
+	})
+
+	_, err := GetAllNodes(context.Background(), client)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "failed to list nodes") {
+		t.Fatalf("expected list error to be wrapped, got %v", err)
+	}
+}
+
 func TestCanSchedule(t *testing.T) {
 	t.Run("ReturnsFalseForNonToleratedTaints", func(t *testing.T) {
 		node := &corev1.Node{Spec: corev1.NodeSpec{Taints: []corev1.Taint{{Effect: "NoSchedule"}}}}
@@ -69,6 +88,52 @@ func TestCanSchedule(t *testing.T) {
 		node := &corev1.Node{Spec: corev1.NodeSpec{Taints: []corev1.Taint{{Effect: "NoSchedule"}}}}
 		podSpec := &corev1.PodSpec{Tolerations: []corev1.Toleration{{Effect: "NoSchedule"}}}
 		assert.True(t, CanSchedule(node, podSpec))
+	})
+}
+
+func TestCanScheduleSelectorsAndAffinity(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"disktype": "ssd"}},
+	}
+
+	t.Run("unschedulable node", func(t *testing.T) {
+		n := node.DeepCopy()
+		n.Spec.Unschedulable = true
+		if CanSchedule(n, &corev1.PodSpec{}) {
+			t.Fatalf("expected unschedulable node to return false")
+		}
+	})
+
+	t.Run("node selector mismatch", func(t *testing.T) {
+		podSpec := &corev1.PodSpec{NodeSelector: map[string]string{"disktype": "hdd"}}
+		if CanSchedule(node, podSpec) {
+			t.Fatalf("expected selector mismatch to return false")
+		}
+	})
+
+	t.Run("affinity requirement fails", func(t *testing.T) {
+		podSpec := &corev1.PodSpec{Affinity: &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "zone", Operator: corev1.NodeSelectorOpExists}}}}}}}}
+		if CanSchedule(node, podSpec) {
+			t.Fatalf("expected affinity to block scheduling")
+		}
+	})
+
+	t.Run("selectors satisfied", func(t *testing.T) {
+		podSpec := &corev1.PodSpec{
+			NodeSelector: map[string]string{"disktype": "ssd"},
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "disktype", Operator: corev1.NodeSelectorOpIn, Values: []string{"ssd"}}},
+						}},
+					},
+				},
+			},
+		}
+		if !CanSchedule(node, podSpec) {
+			t.Fatalf("expected selectors and affinity to allow scheduling")
+		}
 	})
 }
 
@@ -163,6 +228,23 @@ func TestNodeMatchesNodeSelector(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, nodeMatchesNodeSelector(tt.node, tt.selector))
 		})
+	}
+}
+
+func TestNodeSelectorTermMatchesOperators(t *testing.T) {
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"role": "db", "cache": "enabled"}}}
+	term := &corev1.NodeSelectorTerm{MatchExpressions: []corev1.NodeSelectorRequirement{
+		{Key: "role", Operator: corev1.NodeSelectorOpNotIn, Values: []string{"web"}},
+		{Key: "cache", Operator: corev1.NodeSelectorOpExists},
+		{Key: "legacy", Operator: corev1.NodeSelectorOpDoesNotExist},
+	}}
+	if !nodeSelectorTermMatches(node, term) {
+		t.Fatalf("expected term to match")
+	}
+
+	term.MatchExpressions = append(term.MatchExpressions, corev1.NodeSelectorRequirement{Key: "role", Operator: corev1.NodeSelectorOpGt, Values: []string{"5"}})
+	if nodeSelectorTermMatches(node, term) {
+		t.Fatalf("expected unsupported operator to return false")
 	}
 }
 

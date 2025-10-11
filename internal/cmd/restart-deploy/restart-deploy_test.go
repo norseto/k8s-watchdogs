@@ -246,6 +246,20 @@ func TestNewCommandRunEValidation(t *testing.T) {
 		assert.Error(t, runErr)
 		assert.Contains(t, runErr.Error(), "failed to create client: boom")
 	})
+
+	t.Run("no args triggers usage", func(t *testing.T) {
+		cmd := NewCommand()
+		cmd.SetContext(ctx)
+
+		err := cmd.Flags().Set("namespace", "default")
+		assert.NoError(t, err)
+
+		_, restore := useFakeClientset(t)
+		defer restore()
+
+		runErr := cmd.RunE(cmd, []string{})
+		assert.NoError(t, runErr)
+	})
 }
 
 func TestRestartDeployment(t *testing.T) {

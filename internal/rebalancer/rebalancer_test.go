@@ -26,15 +26,18 @@ package rebalancer
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func TestSpecReplicas(t *testing.T) {
@@ -60,6 +63,25 @@ func TestSpecReplicas(t *testing.T) {
 	expected := int32(5)
 	if actual != expected {
 		t.Errorf("Expected: %d, but got: %d", expected, actual)
+	}
+}
+
+func TestSpecReplicasNilStates(t *testing.T) {
+	tests := []struct {
+		name string
+		reb  *Rebalancer
+	}{
+		{name: "nil current", reb: &Rebalancer{}},
+		{name: "nil replicaset", reb: &Rebalancer{current: &ReplicaState{}}},
+		{name: "nil spec replicas", reb: &Rebalancer{current: &ReplicaState{Replicaset: &appsv1.ReplicaSet{}}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.reb.specReplicas(); got != 0 {
+				t.Fatalf("expected 0 replicas, got %d", got)
+			}
+		})
 	}
 }
 
@@ -90,6 +112,24 @@ func TestCurrentReplicas(t *testing.T) {
 	expected := int32(5)
 	if actual != expected {
 		t.Errorf("Expected: %d, but got: %d", expected, actual)
+	}
+}
+
+func TestCurrentReplicasNilStates(t *testing.T) {
+	tests := []struct {
+		name string
+		reb  *Rebalancer
+	}{
+		{name: "nil current", reb: &Rebalancer{}},
+		{name: "nil replicaset", reb: &Rebalancer{current: &ReplicaState{}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.reb.currentReplicas(); got != 0 {
+				t.Fatalf("expected 0 replicas, got %d", got)
+			}
+		})
 	}
 }
 
@@ -161,6 +201,25 @@ func TestFilterSchedulables(t *testing.T) {
 	}
 }
 
+func TestFilterSchedulablesEdgeCases(t *testing.T) {
+	t.Run("no pod status entries", func(t *testing.T) {
+		reb := &Rebalancer{current: &ReplicaState{Nodes: []*corev1.Node{node("keep")}}}
+		original := append([]*corev1.Node{}, reb.current.Nodes...)
+		reb.filterSchedulables(context.Background())
+		if len(reb.current.Nodes) != len(original) {
+			t.Fatalf("expected nodes unchanged")
+		}
+	})
+
+	t.Run("first pod nil", func(t *testing.T) {
+		reb := &Rebalancer{current: &ReplicaState{PodStatus: []*PodStatus{{Pod: nil}}, Nodes: []*corev1.Node{node("keep")}}}
+		reb.filterSchedulables(context.Background())
+		if len(reb.current.Nodes) != 1 {
+			t.Fatalf("expected nodes unchanged when first pod nil")
+		}
+	})
+}
+
 func TestRebalance(t *testing.T) {
 	replicas := int32(3)
 	ctx := context.Background()
@@ -214,6 +273,110 @@ func TestRebalance(t *testing.T) {
 		}
 	}
 	assert.Equal(t, "node-2", deletedPodNode, "Pod on node-2 should be deleted")
+}
+
+func TestRebalanceEarlyExitConditions(t *testing.T) {
+	replicas := int32(1)
+	ctx := context.Background()
+	baseState := &ReplicaState{PodStatus: []*PodStatus{{Pod: pod("p", "n")}}}
+
+	cases := []struct {
+		name    string
+		current *ReplicaState
+		rate    float32
+	}{
+		{
+			name: "single node", rate: .5,
+			current: &ReplicaState{
+				Replicaset: &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Replicas: int32Ptr(2)}, Status: appsv1.ReplicaSetStatus{Replicas: 2}},
+				Nodes:      []*corev1.Node{node("only")},
+				PodStatus:  []*PodStatus{{Pod: pod("p", "only")}},
+			},
+		},
+		{
+			name: "insufficient spec replicas", rate: .5,
+			current: &ReplicaState{
+				Replicaset: &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Replicas: int32Ptr(1)}, Status: appsv1.ReplicaSetStatus{Replicas: 1}},
+				Nodes:      []*corev1.Node{node("n1"), node("n2")},
+				PodStatus:  baseState.PodStatus,
+			},
+		},
+		{
+			name: "current replicas below spec", rate: .5,
+			current: &ReplicaState{
+				Replicaset: &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Replicas: int32Ptr(3)}, Status: appsv1.ReplicaSetStatus{Replicas: 2}},
+				Nodes:      []*corev1.Node{node("n1"), node("n2")},
+				PodStatus:  []*PodStatus{{Pod: pod("p1", "n1")}, {Pod: pod("p2", "n2")}},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			reb := NewRebalancer(ctx, tc.current, tc.rate)
+			acted, err := reb.Rebalance(ctx, fake.NewSimpleClientset())
+			assert.NoError(t, err)
+			assert.False(t, acted)
+		})
+	}
+
+	// ensure different rate with replicas < 2 early exit branch.
+	reb := NewRebalancer(ctx, &ReplicaState{Replicaset: &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Replicas: &replicas}, Status: appsv1.ReplicaSetStatus{Replicas: replicas}}, Nodes: []*corev1.Node{node("n1"), node("n2")}, PodStatus: baseState.PodStatus}, .2)
+	acted, err := reb.Rebalance(ctx, fake.NewSimpleClientset())
+	assert.NoError(t, err)
+	assert.False(t, acted)
+}
+
+func TestRebalanceHandlesDeleteErrors(t *testing.T) {
+	replicas := int32(4)
+	ctx := context.Background()
+	rs := &appsv1.ReplicaSet{
+		Spec:   appsv1.ReplicaSetSpec{Replicas: &replicas},
+		Status: appsv1.ReplicaSetStatus{Replicas: replicas},
+	}
+	pods := []*PodStatus{
+		{Pod: pod("p1", "n1")},
+		{Pod: pod("p2", "n1")},
+		{Pod: pod("p3", "n1")},
+		{Pod: pod("p4", "n2")},
+	}
+	nodes := []*corev1.Node{node("n1", capacity("100m", "100Mi")), node("n2", capacity("100m", "100Mi"))}
+	reb := NewRebalancer(ctx, &ReplicaState{Replicaset: rs, Nodes: nodes, PodStatus: pods}, .5)
+
+	client := fake.NewSimpleClientset(rs, nodes[0], nodes[1], pods[0].Pod, pods[1].Pod, pods[2].Pod, pods[3].Pod)
+	delErr := errors.New("delete failed")
+	client.PrependReactor("delete", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, delErr
+	})
+
+	acted, err := reb.Rebalance(ctx, client)
+	if err == nil || !strings.Contains(err.Error(), "failed to delete Pod") {
+		t.Fatalf("expected wrapped delete error, got %v", err)
+	}
+	if acted {
+		t.Fatalf("expected acted to be false when delete fails")
+	}
+}
+
+func TestRebalanceReturnsWhenNoPodsToDelete(t *testing.T) {
+	replicas := int32(2)
+	ctx := context.Background()
+	rs := &appsv1.ReplicaSet{Spec: appsv1.ReplicaSetSpec{Replicas: &replicas}, Status: appsv1.ReplicaSetStatus{Replicas: replicas}}
+	pods := []*PodStatus{{Pod: pod("p1", "n1"), deleted: true}, {Pod: pod("p2", "n2"), deleted: true}}
+	nodes := []*corev1.Node{node("n1", capacity("100m", "100Mi")), node("n2", capacity("100m", "100Mi"))}
+	reb := NewRebalancer(ctx, &ReplicaState{Replicaset: rs, Nodes: nodes, PodStatus: pods}, .5)
+
+	acted, err := reb.Rebalance(ctx, fake.NewSimpleClientset())
+	assert.NoError(t, err)
+	assert.False(t, acted)
+}
+
+func TestDeletePodOnNodeNoMatch(t *testing.T) {
+	r := &Rebalancer{current: &ReplicaState{PodStatus: []*PodStatus{{Pod: pod("p1", "n1"), deleted: true}}, Nodes: []*corev1.Node{node("n1")}}}
+	err := r.deletePodOnNode(context.Background(), fake.NewSimpleClientset(), "n1")
+	if err != nil {
+		t.Fatalf("expected nil error when nothing deleted, got %v", err)
+	}
 }
 
 func TestDeletePodOnNode(t *testing.T) {

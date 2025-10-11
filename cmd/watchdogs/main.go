@@ -40,12 +40,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	rootCmdFactory = NewRootCmd
+	exitFunc       = os.Exit
+)
+
 func main() {
-	rootCmd := NewRootCmd()
+	exitFunc(run())
+}
+
+// run executes the root command and returns an exit code instead of exiting directly.
+// This indirection keeps main() minimal while allowing unit tests to exercise the
+// success and failure paths without terminating the test process.
+func run() int {
+	rootCmd := rootCmdFactory()
 	if err := rootCmd.Execute(); err != nil {
 		logger.FromContext(rootCmd.Context()).Error(err, "Failed to execute command")
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // NewRootCmd creates and returns the root cobra.Command for the watchdogs CLI application.

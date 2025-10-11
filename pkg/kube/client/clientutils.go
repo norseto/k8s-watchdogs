@@ -39,6 +39,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var (
+	buildConfigFromFlags  = clientcmd.BuildConfigFromFlags
+	inClusterConfig       = rest.InClusterConfig
+	newClientsetForConfig = kubernetes.NewForConfig
+)
+
 // Options represents the configuration options for a kubernetes client.
 type Options struct {
 	configFilePath      string
@@ -283,20 +289,20 @@ func NewRESTConfig(opts *Options) (*rest.Config, error) {
 
 	switch source {
 	case kubeconfigSourceFlag, kubeconfigSourceEnv:
-		config, buildErr := clientcmd.BuildConfigFromFlags("", kubeconfig)
+		config, buildErr := buildConfigFromFlags("", kubeconfig)
 		if buildErr != nil {
 			return nil, fmt.Errorf("failed to load kubeconfig from %s: %w", source, buildErr)
 		}
 		return config, nil
 	case kubeconfigSourceDefault:
 		if kubeconfig != "" {
-			if config, buildErr := clientcmd.BuildConfigFromFlags("", kubeconfig); buildErr == nil {
+			if config, buildErr := buildConfigFromFlags("", kubeconfig); buildErr == nil {
 				return config, nil
 			}
 		}
 	}
 
-	return rest.InClusterConfig()
+	return inClusterConfig()
 }
 
 // NewClientset creates a new Kubernetes clientset.
@@ -324,7 +330,7 @@ func NewClientsetWithRestConfig(opts *Options) (*kubernetes.Clientset, *rest.Con
 		return nil, nil, fmt.Errorf("failed to create a REST config: %w", err)
 	}
 
-	client, err := kubernetes.NewForConfig(config)
+	client, err := newClientsetForConfig(config)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create a config: %w", err)
 	}
