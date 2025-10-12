@@ -1,4 +1,4 @@
-FROM golang:1.24.7-alpine AS build
+FROM golang:1.24.8-alpine AS build
 
 ARG GITVERSION
 ARG MODULE_PACKAGE
