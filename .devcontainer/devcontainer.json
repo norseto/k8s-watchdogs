@@ -53,6 +53,7 @@
     "type=volume,consistency=delegated,source=vscode-oci-k8s-cred,target=/home/vscode/.kube",
     "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
     "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
-    "type=volume,consistency=delegated,source=codex_volume,target=/home/vscode/.codex"
+    "type=volume,source=codex_volume,target=/home/vscode/.codex,consistency=cached",
+    "type=volume,source=claude-code,target=/home/vscode/.claude,consistency=cached"
   ]
 }
