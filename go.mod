@@ -2,6 +2,8 @@ module github.com/norseto/k8s-watchdogs
 
 go 1.24.8
 
+toolchain go1.24.10
+
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/pkg/errors v0.9.1
