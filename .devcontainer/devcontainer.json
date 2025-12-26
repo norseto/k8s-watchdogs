@@ -19,7 +19,7 @@
     "ghcr.io/mpriscella/features/kind:1": {},
     "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/rio/features/kustomize:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {"moby": false},
     "ghcr.io/devcontainers-extra/features/sops:1": {}
   },
   // Use 'settings' to set *default* container specific settings.json values on container create.
