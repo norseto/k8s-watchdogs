@@ -8,6 +8,10 @@ LDFLAGS := -ldflags=all=
 test: fmt vet ## Run tests.
 	go test ./... -coverprofile cover.out
 
+.PHONY: cover
+cover: test ## Show test coverage summary.
+	go tool cover -func=cover.out
+
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
