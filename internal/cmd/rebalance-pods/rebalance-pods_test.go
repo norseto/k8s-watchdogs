@@ -79,10 +79,6 @@ func readyPod(name, node string, owner metav1.OwnerReference) *corev1.Pod {
 	}
 }
 
-func int32Ptr(v int32) *int32 {
-	return &v
-}
-
 type fakeRebalancer struct {
 	result bool
 	err    error

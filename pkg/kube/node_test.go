@@ -112,7 +112,20 @@ func TestCanScheduleSelectorsAndAffinity(t *testing.T) {
 	})
 
 	t.Run("affinity requirement fails", func(t *testing.T) {
-		podSpec := &corev1.PodSpec{Affinity: &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "zone", Operator: corev1.NodeSelectorOpExists}}}}}}}}
+		podSpec := &corev1.PodSpec{
+			Affinity: &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchExpressions: []corev1.NodeSelectorRequirement{{
+								Key:      "zone",
+								Operator: corev1.NodeSelectorOpExists,
+							}},
+						}},
+					},
+				},
+			},
+		}
 		if CanSchedule(node, podSpec) {
 			t.Fatalf("expected affinity to block scheduling")
 		}
@@ -125,7 +138,11 @@ func TestCanScheduleSelectorsAndAffinity(t *testing.T) {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-							MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "disktype", Operator: corev1.NodeSelectorOpIn, Values: []string{"ssd"}}},
+							MatchExpressions: []corev1.NodeSelectorRequirement{{
+								Key:      "disktype",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"ssd"},
+							}},
 						}},
 					},
 				},
@@ -242,7 +259,11 @@ func TestNodeSelectorTermMatchesOperators(t *testing.T) {
 		t.Fatalf("expected term to match")
 	}
 
-	term.MatchExpressions = append(term.MatchExpressions, corev1.NodeSelectorRequirement{Key: "role", Operator: corev1.NodeSelectorOpGt, Values: []string{"5"}})
+	term.MatchExpressions = append(term.MatchExpressions, corev1.NodeSelectorRequirement{
+		Key:      "role",
+		Operator: corev1.NodeSelectorOpGt,
+		Values:   []string{"5"},
+	})
 	if nodeSelectorTermMatches(node, term) {
 		t.Fatalf("expected unsupported operator to return false")
 	}

@@ -235,7 +235,7 @@ func TestRebalance(t *testing.T) {
 	}
 	node1, node2, node3 :=
 		node("node-1", capacity("100m", "100Mi")),
-		node("node-2", capacity("100m", "100Mi")),
+		node("node-2", capacity("200m", "200Mi")),
 		node("node-3", capacity("100m", "100Mi"))
 	pod1, pod2, pod3 :=
 		pod("pod-1", "node-1"),

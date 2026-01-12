@@ -295,31 +295,6 @@ func TestNewCommand(t *testing.T) {
 	assert.NotNil(t, NewCommand())
 }
 
-// createTempKubeconfig creates a temporary kubeconfig file for testing.
-func createTempKubeconfig(t *testing.T) string {
-	content := []byte("apiVersion: v1\n" +
-		"clusters:\n" +
-		"- cluster:\n" +
-		"    server: https://127.0.0.1\n" +
-		"  name: test\n" +
-		"contexts:\n" +
-		"- context:\n" +
-		"    cluster: test\n" +
-		"    user: test\n" +
-		"  name: test\n" +
-		"current-context: test\n" +
-		"users:\n" +
-		"- name: test\n" +
-		"  user:\n" +
-		"    token: dummy\n")
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config")
-	if err := os.WriteFile(path, content, 0600); err != nil {
-		t.Fatalf("failed to write kubeconfig: %v", err)
-	}
-	return path
-}
-
 // TestNewCommand_SuccessfulExecution tests the successful execution path of the command.
 func TestNewCommand_SuccessfulExecution(t *testing.T) {
 	// Create a minimal kubeconfig that will quickly fail when trying to connect
