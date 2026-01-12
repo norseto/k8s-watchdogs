@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -109,6 +110,9 @@ func TestNewCommandInvalidPrefix(t *testing.T) {
 }
 
 func TestNewCommandClientError(t *testing.T) {
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "missing", "config"))
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+
 	cmd := NewCommand()
 	ctx := logger.WithContext(context.Background(), zap.New())
 	ctx = client.WithContext(ctx, &client.Options{})
