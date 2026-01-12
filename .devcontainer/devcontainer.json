@@ -36,7 +36,9 @@
 
   "remoteUser": "vscode",
   "containerEnv": {
-    "GOCACHE": "/home/vscode/.gocache",
+    "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
+    "GOCACHE": "/tmp/.gocache",
+    "GOMODCACHE": "/tmp/.gomodcache",
     "GOPATH": "/go",
     "GOROOT": "/usr/local/go"
   },
@@ -55,7 +57,8 @@
     "type=volume,consistency=delegated,source=vscode-aws-cred,target=/home/vscode/.aws",
     "type=volume,consistency=delegated,source=vscode-oci-k8s-cred,target=/home/vscode/.kube",
     "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
-    "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
+    "type=volume,consistency=delegated,source=vscode-go-cache,target=/tmp/.gocache",
+    "type=volume,consistency=delegated,source=vscode-go-modcache,target=/tmp/.gomodcache",
     "type=volume,source=codex_volume,target=/home/vscode/.codex,consistency=cached",
     "type=volume,source=claude-code,target=/home/vscode/.claude,consistency=cached"
   ]

@@ -1,7 +1,6 @@
 #! /usr/bin/env bash
 
-sudo chown -R vscode:vscode \
+sudo chown -R $(id -u):$(id -g) $HOME/.codex $HOME/.claude \
   /home/vscode/.aws /home/vscode/.kube \
-  /home/vscode/.gocache /go
+  /tmp/.gocache /tmp/.gomodcache /go
 
-sudo chown -R $(id -u):$(id -g) $HOME/.codex $HOME/.claude
