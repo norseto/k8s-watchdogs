@@ -2,13 +2,13 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/master/containers/go
 {
   "name": "k8s-watchdogs",
-  "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+  "image": "mcr.microsoft.com/devcontainers/base:noble",
   "runArgs": [
     "--add-host=host.docker.internal:host-gateway"
   ],
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
-      "version": "1.25"
+      "version": "1.25.7"
     },
     "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
       "version": "latest",
@@ -19,7 +19,7 @@
     "ghcr.io/mpriscella/features/kind:1": {},
     "ghcr.io/rio/features/skaffold:2": {},
     "ghcr.io/rio/features/kustomize:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {"moby": false},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {"moby": false},
     "ghcr.io/devcontainers-extra/features/sops:1": {}
   },
   // Use 'settings' to set *default* container specific settings.json values on container create.
