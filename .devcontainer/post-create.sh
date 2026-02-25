@@ -2,5 +2,4 @@
 
 sudo chown -R $(id -u):$(id -g) $HOME/.codex $HOME/.claude \
   /home/vscode/.aws /home/vscode/.kube \
-  /tmp/.gocache /tmp/.gomodcache /go
-
+  /home/vscode/.gocache /home/vscode/.gomodcache /go
