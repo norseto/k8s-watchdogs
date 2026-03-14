@@ -14,6 +14,9 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -24,4 +27,24 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - run: make docker-buildx PLATFORMS=linux/arm64,linux/amd64 IMG=norseto/k8s-watchdogs:v$(hack/get-version.sh)
+      - uses: docker/setup-buildx-action@v3
+      - id: image-meta
+        run: |
+          echo "tag=v$(hack/get-version.sh)" >> "$GITHUB_OUTPUT"
+          echo "gitversion=$(git describe --always)" >> "$GITHUB_OUTPUT"
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: norseto/k8s-watchdogs:${{ steps.image-meta.outputs.tag }}
+          build-args: |
+            MODULE_PACKAGE=github.com/norseto/k8s-watchdogs
+            GITVERSION=${{ steps.image-meta.outputs.gitversion }}
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: index.docker.io/norseto/k8s-watchdogs
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
