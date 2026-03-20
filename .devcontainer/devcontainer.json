@@ -35,6 +35,7 @@
 
   "remoteUser": "vscode",
   "containerEnv": {
+    "CURSOR_API_KEY": "${localEnv:CURSOR_API_KEY}",
     "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
     "GOCACHE": "/home/vscode/.gocache",
     "GOMODCACHE": "/home/vscode/.gomodcache",
@@ -58,7 +59,9 @@
     "type=volume,consistency=delegated,source=vscode-go-path-pkg,target=/go/pkg",
     "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
     "type=volume,consistency=delegated,source=vscode-go-modcache,target=/home/vscode/.gomodcache",
-    "type=volume,source=codex_volume,target=/home/vscode/.codex,consistency=cached",
-    "type=volume,source=claude-code,target=/home/vscode/.claude,consistency=cached"
+    "type=volume,source=codex-volume,target=/home/vscode/.codex,consistency=cached",
+    "type=volume,source=claude-code,target=/home/vscode/.claude,consistency=cached",
+    "source=copilot-volume,target=/home/vscode/.copilot,type=volume,consistency=cached",
+    "source=cursor-volume,target=/home/vscode/.cursor,type=volume,consistency=cached"
   ]
 }
