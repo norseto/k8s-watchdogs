@@ -4,7 +4,24 @@
   "name": "k8s-watchdogs",
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "runArgs": [
-    "--add-host=host.docker.internal:host-gateway"
+    "--add-host=host.docker.internal:host-gateway",
+    "--security-opt=seccomp=unconfined",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=FOWNER",
+    "--cap-add=FSETID",
+    "--cap-add=DAC_OVERRIDE",
+    "--cap-add=AUDIT_WRITE",
+    "--cap-add=KILL",
+    "--cap-add=NET_BIND_SERVICE",
+    "--cap-add=NET_RAW",
+    "--cap-add=SETFCAP",
+    "--cap-add=SETPCAP",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID",
+    "--cap-add=SYS_CHROOT",
+    "--pids-limit=512",
+    "--init"
   ],
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
