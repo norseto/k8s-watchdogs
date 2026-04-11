@@ -6,6 +6,7 @@
   "runArgs": [
     "--add-host=host.docker.internal:host-gateway",
     "--security-opt=seccomp=unconfined",
+    "--security-opt=label=disable",
     "--cap-drop=ALL",
     "--cap-add=CHOWN",
     "--cap-add=FOWNER",
