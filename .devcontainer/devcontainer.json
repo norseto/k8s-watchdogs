@@ -55,6 +55,7 @@
   "containerEnv": {
     "CURSOR_API_KEY": "${localEnv:CURSOR_API_KEY}",
     "CONTEXT7_API_KEY": "${localEnv:CONTEXT7_API_KEY}",
+    "MISE_GITHUB_TOKEN": "${localEnv:MISE_GITHUB_TOKEN}",
     "GOCACHE": "/home/vscode/.gocache",
     "GOMODCACHE": "/home/vscode/.gomodcache",
     "GOPATH": "/go",
