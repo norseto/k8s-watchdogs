@@ -7,6 +7,7 @@
 - If you are unsure about something, ask for more context.
 - DO NOT ASSUME YOU KNOW EVERYTHING, ASK THE USER ABOUT THEIR REASONING.
 - Ask users to provide more context (for example imported files etc) when needed.
+- When creating plans, follow [docs/plans/README.md](docs/plans/README.md).
 
 ## Basic Code Style & Guidelines
 - Write code comments and PR comments in English.
