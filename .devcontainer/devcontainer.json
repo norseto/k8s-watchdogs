@@ -79,6 +79,9 @@
     "type=volume,consistency=delegated,source=vscode-go-cache,target=/home/vscode/.gocache",
     "type=volume,consistency=delegated,source=vscode-go-modcache,target=/home/vscode/.gomodcache",
     "type=volume,source=codex-volume,target=/home/vscode/.codex,consistency=cached",
+    // Per-container ephemeral app-server runtime state
+    "type=tmpfs,target=/home/vscode/.codex/app-server-control,tmpfs-mode=0700",
+    "type=tmpfs,target=/home/vscode/.codex/app-server-daemon,tmpfs-mode=0700",
     "type=volume,source=claude-code,target=/home/vscode/.claude,consistency=cached",
     "source=copilot-volume,target=/home/vscode/.copilot,type=volume,consistency=cached",
     "source=cursor-volume,target=/home/vscode/.cursor,type=volume,consistency=cached"
