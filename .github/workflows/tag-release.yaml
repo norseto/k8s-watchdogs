@@ -38,7 +38,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: norseto/k8s-watchdogs:${{ steps.image-meta.outputs.tag }}
+          tags: docker.io/norseto/k8s-watchdogs:${{ steps.image-meta.outputs.tag }}
           build-args: |
             MODULE_PACKAGE=github.com/norseto/k8s-watchdogs
             GITVERSION=${{ steps.image-meta.outputs.gitversion }}
