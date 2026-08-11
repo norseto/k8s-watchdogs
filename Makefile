@@ -46,14 +46,15 @@ $(LOCALBIN):
 
 ## Tool Binaries
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-GOVULNCHECK ?= $(LOCALBIN)/govulncheck
-GOSEC ?= $(LOCALBIN)/gosec
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+GO_TOOLCHAIN_VERSION := $(shell go env GOVERSION)
+GOVULNCHECK = $(LOCALBIN)/govulncheck-$(GOVULNCHECK_VERSION)-$(GO_TOOLCHAIN_VERSION)
+GOSEC = $(LOCALBIN)/gosec-$(GOSEC_VERSION)-$(GO_TOOLCHAIN_VERSION)
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)-$(GO_TOOLCHAIN_VERSION)
 
 ## Tool Versions
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
-GOVULNCHECK_VERSION ?= latest
-GOSEC_VERSION ?= latest
+GOVULNCHECK_VERSION ?= v1.6.0
+GOSEC_VERSION ?= v2.22.5
 GOLANGCI_LINT_VERSION ?= v2.4.0
 
 .PHONY: controller-gen
@@ -65,21 +66,24 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 
 .PHONY: govulncheck
 govulncheck: $(GOVULNCHECK) ## Download govulncheck locally if necessary.
-$(GOVULNCHECK): $(LOCALBIN)
+$(GOVULNCHECK): | $(LOCALBIN)
 	# Run in module root so toolchain from go.mod is honored.
 	GOBIN=$(LOCALBIN) go -C . install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	mv $(LOCALBIN)/govulncheck $@
 
 .PHONY: gosec
 gosec: $(GOSEC) ## Download gosec locally if necessary.
-$(GOSEC): $(LOCALBIN)
+$(GOSEC): | $(LOCALBIN)
 	# Run in module root so toolchain from go.mod is honored.
 	GOBIN=$(LOCALBIN) go -C . install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+	mv $(LOCALBIN)/gosec $@
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
+$(GOLANGCI_LINT): | $(LOCALBIN)
 	# Run in module root so toolchain from go.mod is honored.
 	GOBIN=$(LOCALBIN) go -C . install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	mv $(LOCALBIN)/golangci-lint $@
 
 .PHONY: docker-buildx-setup
 docker-buildx-setup: ## Setup buildx builder for multi-arch builds.
