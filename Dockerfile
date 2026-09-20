@@ -1,16 +1,21 @@
-FROM golang:1.26.6-alpine AS build
+# Keep the Go toolchain native while cross-compiling for each target platform.
+FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine AS build
+
+RUN mkdir -p /build /dist
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . /build/
 
 ARG GITVERSION
 ARG MODULE_PACKAGE
-
-RUN mkdir -p /build /dist
-COPY . /build/
-WORKDIR /build
+ARG TARGETOS
+ARG TARGETARCH
 
 ENV CGO_ENABLED=0
-RUN go mod download \
-	&& go vet cmd/watchdogs/*.go \
-	&& CGO_ENABLED=0 go build -ldflags=all="-X ${MODULE_PACKAGE}.GitVersion=${GITVERSION}" -o /build/watchdogs cmd/watchdogs/*.go \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go vet cmd/watchdogs/*.go \
+	&& GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags=all="-X ${MODULE_PACKAGE}.GitVersion=${GITVERSION}" -o /build/watchdogs cmd/watchdogs/*.go \
 	&& cp watchdogs /dist \
 	&& cp LICENSE /dist \
 	;
