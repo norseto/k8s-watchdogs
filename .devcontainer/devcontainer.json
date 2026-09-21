@@ -66,6 +66,7 @@
 
   "workspaceMount": "type=bind,source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename}",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [62350],
 
   // Uncomment the next line if you want to publish any ports.
   // "appPort": [],
