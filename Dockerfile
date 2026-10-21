@@ -1,5 +1,5 @@
 # Keep the Go toolchain native while cross-compiling for each target platform.
-FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine AS build
 
 RUN mkdir -p /build /dist
 WORKDIR /build
