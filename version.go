@@ -27,7 +27,7 @@ package k8s_watchdogs
 var Version = RELEASE_VERSION
 
 const (
-	RELEASE_VERSION = "0.3.15"
+	RELEASE_VERSION = "0.3.16"
 )
 
 var GitVersion = ""
